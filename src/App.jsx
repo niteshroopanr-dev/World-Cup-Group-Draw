@@ -184,7 +184,9 @@ export default function WorldCupFamilyDraw(){
       {view==="join" && <Join back={()=>setView("home")} onFound={openGroup}/>}
       {view==="group" && group && <GroupView group={group} preds={preds} setPreds={savePreds}
         saveGroup={saveGroup} exit={()=>{setGroup(null);setView("home");}}/>}
-      <footer className="foot">A just-for-fun family game · not affiliated with FIFA · no real money is handled here</footer>
+      <footer className="foot">A just-for-fun family game · not affiliated with FIFA · no real money is handled here
+        <span className="foot-credit">Built by <a className="foot-link" href="https://profit-pulse.com.au" target="_blank" rel="noopener noreferrer">ProfitPulse</a> · fractional CFOs for Australian businesses</span>
+      </footer>
     </div>
   );
 }
@@ -671,7 +673,10 @@ const CSS = `
 .display{font-family:'Anton',sans-serif;letter-spacing:.015em;text-transform:uppercase;line-height:.96;font-weight:400}
 .gold{color:var(--gold)}.muted{color:rgba(251,247,236,.55);font-weight:500}.center{text-align:center}
 .wrap{max-width:680px;margin:0 auto;padding:20px 16px 130px;position:relative;z-index:1}
-.foot{position:relative;z-index:1;text-align:center;font-size:11px;color:rgba(251,247,236,.45);padding:0 16px 26px;max-width:680px;margin:-110px auto 0}
+.foot{position:relative;z-index:1;text-align:center;font-size:11px;color:rgba(251,247,236,.45);padding:0 16px 26px;max-width:680px;margin:-110px auto 0;line-height:1.6}
+.foot-credit{display:block;margin-top:6px}
+.foot-link{color:var(--gold);font-weight:700;text-decoration:none;border-bottom:1px solid rgba(255,210,63,.45)}
+.foot-link:hover{border-bottom-color:var(--gold)}
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:9px;border:none;cursor:pointer;font-family:'Outfit';font-weight:700;font-size:15px;border-radius:14px;padding:13px 18px;transition:transform .12s,box-shadow .12s,background .15s;color:var(--ink)}
 .btn:active{transform:scale(.97)}
 .btn-gold{background:linear-gradient(180deg,#ffe066,#f4b400);color:#3a2a00;box-shadow:0 6px 0 #b88600,0 10px 22px rgba(0,0,0,.3)}
