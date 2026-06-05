@@ -6,8 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview",
-    "make:share-image": "node scripts/make-share-image.mjs"
+    "preview": "vite preview"
   },
   "dependencies": {
     "lucide-react": "^1.17.0",
@@ -16,7 +15,6 @@
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^6.0.2",
-    "sharp": "^0.34.5",
     "vite": "^8.0.16"
   }
 }

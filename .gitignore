@@ -27,3 +27,7 @@ dist-ssr
 .env
 .env.*
 !.env.example
+
+# Internal planning doc & original prototype — kept local, not published
+world-cup-build-brief.md
+world-cup-family-draw.jsx
