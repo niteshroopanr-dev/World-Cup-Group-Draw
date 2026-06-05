@@ -3,6 +3,7 @@ import {
   Trophy, Users, UserPlus, Plus, X, Copy, Check, ArrowLeft, Sparkles,
   Crown, Coins, Wand2, Flag, Shuffle, Info, RotateCcw, Lock, ChevronDown
 } from "lucide-react";
+import { supabase } from "./supabase.js";
 
 /* ------------------------------------------------------------------ */
 /*  DATA  —  2026 FIFA World Cup (48 teams, 12 groups)                 */
@@ -139,14 +140,58 @@ const groupStandings = (letter, results) => {
 };
 
 /* ------------------------------- STORAGE -------------------------- */
+/* The SHARED half (group, results, predictions, pool) lives in Supabase so every device on the
+   same code sees the same data, with per-row results and predictions so two devices writing at
+   once never clobber each other. The DEVICE half (last, mine, me, creator) stays in this browser's
+   localStorage via the window.storage shim — personal to the device, never synced. */
 const store = {
-  ok: typeof window!=="undefined" && window.storage,
-  async getGroup(code){ if(!this.ok) return null; try{ const r=await window.storage.get("wcfd:group:"+code,true); return r?JSON.parse(r.value):null; }catch{ return null; } },
-  async setGroup(code,g){ if(!this.ok) return; try{ await window.storage.set("wcfd:group:"+code,JSON.stringify(g),true);}catch(e){} },
+  ok: typeof window!=="undefined" && window.storage, // device half (localStorage shim)
+
+  /* ---- SHARED half → Supabase ---- */
+  async getGroup(code){
+    if(!supabase) return null;
+    try{
+      const { data:g, error } = await supabase.from("groups").select("*").eq("code",code).maybeSingle();
+      if(error || !g) return null;
+      const { data:rows } = await supabase.from("results").select("fixture,h,a").eq("code",code);
+      const results = {}; (rows||[]).forEach(r=>{ results[r.fixture]={h:r.h,a:r.a}; });
+      return { code:g.code, name:g.name, members:g.members, alloc:g.alloc, pool:g.pool||{}, results };
+    }catch{ return null; }
+  },
+  // Upserts only the groups row (code, name, members, alloc, pool). Results are per-row, kept apart.
+  async setGroup(code,g){
+    if(!supabase) return;
+    try{ await supabase.from("groups").upsert({ code, name:g.name, members:g.members, alloc:g.alloc, pool:g.pool||{} }); }catch(e){}
+  },
+  // One score → one results row. Clearing a score deletes that one row. Never rewrites the group.
+  async setResult(code,fixture,h,a){
+    if(!supabase) return;
+    try{ await supabase.from("results").upsert({ code, fixture, h, a, updated_at:new Date().toISOString() }); }catch(e){}
+  },
+  async clearResult(code,fixture){
+    if(!supabase) return;
+    try{ await supabase.from("results").delete().eq("code",code).eq("fixture",fixture); }catch(e){}
+  },
+  async getPreds(code){
+    if(!supabase) return {};
+    try{
+      const { data } = await supabase.from("predictions").select("member,fixture,pick").eq("code",code);
+      const out = {}; (data||[]).forEach(r=>{ (out[r.member]=out[r.member]||{})[r.fixture]=r.pick; }); return out;
+    }catch{ return {}; }
+  },
+  // One pick → one predictions row. Toggling a pick off deletes that one row.
+  async setPick(code,member,fixture,pick){
+    if(!supabase) return;
+    try{ await supabase.from("predictions").upsert({ code, member, fixture, pick, updated_at:new Date().toISOString() }); }catch(e){}
+  },
+  async clearPick(code,member,fixture){
+    if(!supabase) return;
+    try{ await supabase.from("predictions").delete().eq("code",code).eq("member",member).eq("fixture",fixture); }catch(e){}
+  },
+
+  /* ---- DEVICE half → localStorage (window.storage shim), unchanged ---- */
   async setLast(code){ if(!this.ok) return; try{ await window.storage.set("wcfd:last",code,false);}catch(e){} },
   async getLast(){ if(!this.ok) return null; try{ const r=await window.storage.get("wcfd:last",false); return r?r.value:null;}catch{return null;} },
-  async getPreds(code){ if(!this.ok) return {}; try{ const r=await window.storage.get("wcfd:gpred:"+code,true); return r?JSON.parse(r.value):{};}catch{return {};} },
-  async setPreds(code,p){ if(!this.ok) return; try{ await window.storage.set("wcfd:gpred:"+code,JSON.stringify(p),true);}catch(e){} },
   async getMine(code){ if(!this.ok) return []; try{ const r=await window.storage.get("wcfd:mine:"+code,false); if(r) return JSON.parse(r.value); const o=await window.storage.get("wcfd:me:"+code,false); return o?[o.value]:[]; }catch{return [];} },
   async setMine(code,arr){ if(!this.ok) return; try{ await window.storage.set("wcfd:mine:"+code,JSON.stringify(arr),false);}catch(e){} },
   async markCreator(code){ if(!this.ok) return; try{ await window.storage.set("wcfd:creator:"+code,"1",false);}catch(e){} },
@@ -170,10 +215,54 @@ export default function WorldCupFamilyDraw(){
     store.getLast().then(c => { if(c) setLastCode(c); });
   }, []);
 
+  // Live sync: while a group is open, fold incoming row changes into the same React state the
+  // component already renders. One person's score or pick lands on every other open device within
+  // a second, no refresh. (Supabase Realtime, filtered by the current code.)
+  useEffect(() => {
+    const code = group?.code;
+    if(!code || !supabase) return;
+    const ch = supabase.channel("wcfd:"+code)
+      .on("postgres_changes", { event:"*", schema:"public", table:"results", filter:"code=eq."+code }, (p) => {
+        setGroup(g => {
+          if(!g || g.code!==code) return g;
+          const results = {...g.results};
+          if(p.eventType==="DELETE"){ const fx=p.old?.fixture; if(fx) delete results[fx]; }
+          else { const r=p.new; results[r.fixture]={h:r.h,a:r.a}; }
+          return {...g, results};
+        });
+      })
+      .on("postgres_changes", { event:"*", schema:"public", table:"predictions", filter:"code=eq."+code }, (p) => {
+        setPreds(prev => {
+          const out = {...prev};
+          if(p.eventType==="DELETE"){
+            const o=p.old; if(o?.member && o?.fixture && out[o.member]){ const m={...out[o.member]}; delete m[o.fixture]; out[o.member]=m; }
+          } else {
+            const r=p.new; const m={...(out[r.member]||{})}; m[r.fixture]=r.pick; out[r.member]=m;
+          }
+          return out;
+        });
+      })
+      .on("postgres_changes", { event:"*", schema:"public", table:"groups", filter:"code=eq."+code }, (p) => {
+        if(p.eventType==="DELETE") return;
+        const r=p.new;
+        setGroup(g => (g && g.code===code) ? {...g, name:r.name, members:r.members, alloc:r.alloc, pool:r.pool||{}} : g);
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, [group?.code]);
+
   const fire = () => setBoom(Date.now());
   const openGroup = async (g) => { setGroup(g); setView("group"); store.setLast(g.code); setLastCode(g.code); setPreds(await store.getPreds(g.code)); setMine(await store.getMine(g.code)); setIsCreator(await store.isCreator(g.code)); };
   const saveGroup = async (g) => { setGroup(g); await store.setGroup(g.code, g); };
-  const savePreds = async (p) => { setPreds(p); if(group) await store.setPreds(group.code, p); };
+  // Per-row writes: a score or a pick touches one row, not the whole group/preds blob.
+  const saveResult = async (fxId, h, a) => {
+    setGroup(g => { const results={...g.results}; if(h===null) delete results[fxId]; else results[fxId]={h,a}; return {...g, results}; });
+    if(group){ if(h===null) await store.clearResult(group.code, fxId); else await store.setResult(group.code, fxId, h, a); }
+  };
+  const savePick = async (memId, fxId, pick) => {
+    setPreds(prev => { const cur=prev[memId]?{...prev[memId]}:{}; if(pick==null) delete cur[fxId]; else cur[fxId]=pick; return {...prev, [memId]:cur}; });
+    if(group){ if(pick==null) await store.clearPick(group.code, memId, fxId); else await store.setPick(group.code, memId, fxId, pick); }
+  };
   const toggleMine = async (id) => { const next = mine.includes(id) ? mine.filter(x=>x!==id) : [...mine, id]; setMine(next); if(group) await store.setMine(group.code, next); };
 
   return (
@@ -187,8 +276,8 @@ export default function WorldCupFamilyDraw(){
         onDone={async(g)=>{ await store.setGroup(g.code,g); await store.markCreator(g.code); setGroup(g); setIsCreator(true); setView("ceremony"); }}/>}
       {view==="join" && <Join back={()=>setView("home")} onFound={openGroup}/>}
       {view==="ceremony" && group && <Ceremony group={group} fire={fire} onEnter={()=>openGroup(group)}/>}
-      {view==="group" && group && <GroupView group={group} preds={preds} setPreds={savePreds} mine={mine} toggleMine={toggleMine} isCreator={isCreator}
-        onCeremony={()=>setView("ceremony")} saveGroup={saveGroup} exit={()=>{setGroup(null);setView("home");}}/>}
+      {view==="group" && group && <GroupView group={group} preds={preds} onPick={savePick} mine={mine} toggleMine={toggleMine} isCreator={isCreator}
+        onCeremony={()=>setView("ceremony")} saveGroup={saveGroup} saveResult={saveResult} exit={()=>{setGroup(null);setView("home");}}/>}
       <footer className="foot">A just-for-fun group game · not affiliated with FIFA · no real money is handled here</footer>
     </div>
   );
@@ -419,7 +508,7 @@ function Ceremony({ group, onEnter, fire }){
 }
 
 /* ---------------------------- GROUP VIEW -------------------------- */
-function GroupView({ group, preds, setPreds, mine, toggleMine, saveGroup, exit, isCreator, onCeremony }){
+function GroupView({ group, preds, onPick, mine, toggleMine, saveGroup, saveResult, exit, isCreator, onCeremony }){
   const [tab, setTab] = useState("ranks");
   const [project, setProject] = useState(false);
   const [now, setNow] = useState(Date.now());
@@ -455,7 +544,7 @@ function GroupView({ group, preds, setPreds, mine, toggleMine, saveGroup, exit, 
     return { nextFx: unplayed[0]||null, lastFx: played[0]||null };
   }, [group.results, now]);
 
-  const setResult = (fxId,h,a) => { const results={...group.results}; if(h===null) delete results[fxId]; else results[fxId]={h,a}; saveGroup({...group, results}); };
+  const setResult = (fxId,h,a) => saveResult(fxId, h, a);
 
   const tabs = [
     {k:"ranks", label:"Ranks", icon:<Trophy size={16}/>},
@@ -485,7 +574,7 @@ function GroupView({ group, preds, setPreds, mine, toggleMine, saveGroup, exit, 
 
       {tab==="ranks" && <RanksTab standings={standings} titles={titles} anyPlayed={anyPlayed} pool={group.pool} project={project}/>}
       {tab==="squads" && <SquadsTab standings={standings} titles={titles} anyPlayed={anyPlayed} teamHolders={teamHolders} openCard={openCard} setOpenCard={setOpenCard}/>}
-      {tab==="predict" && <PredictTab group={group} preds={preds} setPreds={setPreds} mine={mine} toggleMine={toggleMine} now={now}/>}
+      {tab==="predict" && <PredictTab group={group} preds={preds} onPick={onPick} mine={mine} toggleMine={toggleMine} now={now}/>}
       {tab==="cup" && <CupTab group={group} setResult={setResult} nextFx={nextFx}/>}
       {tab==="pot" && <PotTab group={group} standings={standings} saveGroup={saveGroup} project={project} anyPlayed={anyPlayed}/>}
     </div>
@@ -603,14 +692,13 @@ function Card({ s, titles, anyPlayed, teamHolders, open, onToggle }){
 }
 
 /* ---------------------------- PREDICT ----------------------------- */
-function PredictTab({ group, preds, setPreds, mine, toggleMine, now }){
+function PredictTab({ group, preds, onPick, mine, toggleMine, now }){
   const members = group.members;
   const managed = members.filter(m=>mine.includes(m.id));
   const setPick = (memId, fx, p) => {
     if(now>=fx.ko || group.results[fx.id]) return;
-    const cur = preds[memId] ? {...preds[memId]} : {};
-    cur[fx.id] = cur[fx.id]===p ? undefined : p;
-    setPreds({ ...preds, [memId]: cur });
+    const next = (preds[memId]||{})[fx.id]===p ? null : p; // tapping the same pick toggles it off
+    onPick(memId, fx.id, next);
   };
 
   const anyResult = FIXTURES.some(fx=>group.results[fx.id]);
