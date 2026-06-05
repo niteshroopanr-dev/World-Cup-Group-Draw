@@ -73,13 +73,13 @@ const FIX_BY_TEAM = (() => {
 
 /* ------------------------------- HELPERS -------------------------- */
 const CODE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-const genCode = () => Array.from({length:6}, () => CODE_CHARS[Math.floor(Math.random()*CODE_CHARS.length)]).join("");
+const genCode = (len=10) => Array.from({length:len}, () => CODE_CHARS[Math.floor(Math.random()*CODE_CHARS.length)]).join("");
 const shuffle = (arr) => { const a=[...arr]; for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];} return a; };
 
 // Allocation: every one of the 48 teams is always shared out across the group.
-//  • 12 players  → exactly 4 each, one per tier, no duplicates.
-//  • <12 players → all 48 dealt evenly, so players hold more than 4. No duplicates.
-//  • >12 players → 4 each (one per tier); all 48 covered once, the rest are duplicates.
+//  • 12 members  → exactly 4 each, one per tier, no duplicates.
+//  • <12 members → all 48 dealt evenly, so members hold more than 4. No duplicates.
+//  • >12 members → 4 each (one per tier); all 48 covered once, the rest are duplicates.
 const buildAllocations = (members) => {
   const N = members.length;
   const tiers = [[],[],[],[]];
@@ -91,7 +91,7 @@ const buildAllocations = (members) => {
     let ptr = 0;
     tiers.forEach(t => shuffle(t).forEach(team => { alloc[members[ptr % N].id].push(team); ptr++; }));
   } else {
-    // One team per tier per player; cover all 12 in a tier, then duplicate evenly.
+    // One team per tier per member; cover all 12 in a tier, then duplicate evenly.
     tiers.forEach(t => {
       let deck = []; while (deck.length < N) deck = deck.concat(shuffle(t));
       deck = deck.slice(0, N);
@@ -106,7 +106,7 @@ const money = (n, cur) => { try { return new Intl.NumberFormat(undefined,{style:
 const predResult = (p) => p==="home" ? {h:1,a:0} : p==="away" ? {h:0,a:1} : {h:0,a:0};
 const outcome = (res) => res.h>res.a ? "home" : res.h<res.a ? "away" : "draw";
 
-// One team's family score (with bonuses) from a results map.
+// One team's score (with bonuses) from a results map.
 const teamStats = (id, results) => {
   let pld=0,w=0,d=0,l=0,gf=0,ga=0,pts=0,bestUpset=0;
   for (const fx of FIX_BY_TEAM[id]) {
@@ -139,18 +139,18 @@ const groupStandings = (letter, results) => {
 };
 
 /* ------------------------------- STORAGE -------------------------- */
-/* Stage 1: backed by the browser's localStorage, so a group code only
-   works on the device that created it. The method names and async
-   signatures are kept exactly as the prototype's, so Stage 2 swaps the
-   bodies for Supabase calls without touching the rest of the app. */
 const store = {
-  ok: typeof window!=="undefined" && !!window.localStorage,
-  async getGroup(code){ if(!this.ok) return null; try{ const v=localStorage.getItem("wcfd:group:"+code); return v?JSON.parse(v):null; }catch{ return null; } },
-  async setGroup(code,g){ if(!this.ok) return; try{ localStorage.setItem("wcfd:group:"+code,JSON.stringify(g));}catch(e){} },
-  async setLast(code){ if(!this.ok) return; try{ localStorage.setItem("wcfd:last",code);}catch(e){} },
-  async getLast(){ if(!this.ok) return null; try{ return localStorage.getItem("wcfd:last");}catch{return null;} },
-  async getPreds(code){ if(!this.ok) return {}; try{ const v=localStorage.getItem("wcfd:pred:"+code); return v?JSON.parse(v):{};}catch{return {};} },
-  async setPreds(code,p){ if(!this.ok) return; try{ localStorage.setItem("wcfd:pred:"+code,JSON.stringify(p));}catch(e){} },
+  ok: typeof window!=="undefined" && window.storage,
+  async getGroup(code){ if(!this.ok) return null; try{ const r=await window.storage.get("wcfd:group:"+code,true); return r?JSON.parse(r.value):null; }catch{ return null; } },
+  async setGroup(code,g){ if(!this.ok) return; try{ await window.storage.set("wcfd:group:"+code,JSON.stringify(g),true);}catch(e){} },
+  async setLast(code){ if(!this.ok) return; try{ await window.storage.set("wcfd:last",code,false);}catch(e){} },
+  async getLast(){ if(!this.ok) return null; try{ const r=await window.storage.get("wcfd:last",false); return r?r.value:null;}catch{return null;} },
+  async getPreds(code){ if(!this.ok) return {}; try{ const r=await window.storage.get("wcfd:gpred:"+code,true); return r?JSON.parse(r.value):{};}catch{return {};} },
+  async setPreds(code,p){ if(!this.ok) return; try{ await window.storage.set("wcfd:gpred:"+code,JSON.stringify(p),true);}catch(e){} },
+  async getMine(code){ if(!this.ok) return []; try{ const r=await window.storage.get("wcfd:mine:"+code,false); if(r) return JSON.parse(r.value); const o=await window.storage.get("wcfd:me:"+code,false); return o?[o.value]:[]; }catch{return [];} },
+  async setMine(code,arr){ if(!this.ok) return; try{ await window.storage.set("wcfd:mine:"+code,JSON.stringify(arr),false);}catch(e){} },
+  async markCreator(code){ if(!this.ok) return; try{ await window.storage.set("wcfd:creator:"+code,"1",false);}catch(e){} },
+  async isCreator(code){ if(!this.ok) return false; try{ const r=await window.storage.get("wcfd:creator:"+code,false); return !!(r && r.value==="1"); }catch{ return false; } },
 };
 
 /* ================================================================== */
@@ -158,8 +158,10 @@ export default function WorldCupFamilyDraw(){
   const [view, setView] = useState("home");
   const [group, setGroup] = useState(null);
   const [preds, setPreds] = useState({});
+  const [mine, setMine] = useState([]);
   const [lastCode, setLastCode] = useState(null);
   const [boom, setBoom] = useState(0);
+  const [isCreator, setIsCreator] = useState(false);
 
   useEffect(() => {
     const link = document.createElement("link");
@@ -169,24 +171,25 @@ export default function WorldCupFamilyDraw(){
   }, []);
 
   const fire = () => setBoom(Date.now());
-  const openGroup = async (g) => { setGroup(g); setView("group"); store.setLast(g.code); setLastCode(g.code); setPreds(await store.getPreds(g.code)); };
+  const openGroup = async (g) => { setGroup(g); setView("group"); store.setLast(g.code); setLastCode(g.code); setPreds(await store.getPreds(g.code)); setMine(await store.getMine(g.code)); setIsCreator(await store.isCreator(g.code)); };
   const saveGroup = async (g) => { setGroup(g); await store.setGroup(g.code, g); };
   const savePreds = async (p) => { setPreds(p); if(group) await store.setPreds(group.code, p); };
+  const toggleMine = async (id) => { const next = mine.includes(id) ? mine.filter(x=>x!==id) : [...mine, id]; setMine(next); if(group) await store.setMine(group.code, next); };
 
   return (
     <div className="wc-root">
       <StyleBlock/>
+      <a className="pp-top" href="https://profit-pulse.com.au" target="_blank" rel="noopener noreferrer">Built by <b>ProfitPulse</b> ↗</a>
       {boom ? <Confetti key={boom} done={()=>setBoom(0)}/> : null}
       {view==="home" && <Home lastCode={lastCode} onCreate={()=>setView("create")} onJoin={()=>setView("join")}
         onResume={async()=>{ const g=await store.getGroup(lastCode); if(g) openGroup(g); else setLastCode(null); }}/>}
-      {view==="create" && <Create back={()=>setView("home")} fire={fire}
-        onDone={async(g)=>{ await store.setGroup(g.code,g); openGroup(g); }}/>}
+      {view==="create" && <Create back={()=>setView("home")}
+        onDone={async(g)=>{ await store.setGroup(g.code,g); await store.markCreator(g.code); setGroup(g); setIsCreator(true); setView("ceremony"); }}/>}
       {view==="join" && <Join back={()=>setView("home")} onFound={openGroup}/>}
-      {view==="group" && group && <GroupView group={group} preds={preds} setPreds={savePreds}
-        saveGroup={saveGroup} exit={()=>{setGroup(null);setView("home");}}/>}
-      <footer className="foot">A just-for-fun family game · not affiliated with FIFA · no real money is handled here
-        <span className="foot-credit">Built by <a className="foot-link" href="https://profit-pulse.com.au" target="_blank" rel="noopener noreferrer">ProfitPulse</a> · fractional CFOs for Australian businesses</span>
-      </footer>
+      {view==="ceremony" && group && <Ceremony group={group} fire={fire} onEnter={()=>openGroup(group)}/>}
+      {view==="group" && group && <GroupView group={group} preds={preds} setPreds={savePreds} mine={mine} toggleMine={toggleMine} isCreator={isCreator}
+        onCeremony={()=>setView("ceremony")} saveGroup={saveGroup} exit={()=>{setGroup(null);setView("home");}}/>}
+      <footer className="foot">A just-for-fun group game · not affiliated with FIFA · no real money is handled here</footer>
     </div>
   );
 }
@@ -196,18 +199,18 @@ function Home({ onCreate, onJoin, onResume, lastCode }){
   return (
     <div className="wrap home">
       <div className="ball">⚽</div>
-      <p className="kicker">Summer 2026 · 48 nations · one family rivalry</p>
-      <h1 className="display title">The Family<br/><span className="gold">World Cup Draw</span></h1>
-      <p className="lede">Toss everyone's name in, share out all 48 teams, then watch the family leaderboard fight it out all the way to the final. Built for families scattered across the world.</p>
+      <p className="kicker">48 nations · one global rivalry</p>
+      <h1 className="display title">The World Cup<br/><span className="gold">Group Draw</span></h1>
+      <p className="lede">Insert everyone's names in, the site randomly allocates countries to each member of the group. Then watch the leaderboard fight it out all the way to the final. Built for connected groups scattered across the world.</p>
       <div className="cta-col">
-        <button className="btn btn-gold big" onClick={onCreate}><Sparkles size={20}/> Start a new draw</button>
-        <button className="btn btn-ghost big" onClick={onJoin}><Users size={20}/> Join with a group code</button>
-        {lastCode && <button className="btn btn-link" onClick={onResume}><RotateCcw size={15}/> Resume my last group ({lastCode})</button>}
+        <button className="btn btn-gold big" onClick={onCreate}><Sparkles size={20}/> Create new team</button>
+        <button className="btn btn-ghost big" onClick={onJoin}><Users size={20}/> View an existing team</button>
+        {lastCode && <button className="btn btn-link" onClick={onResume}><RotateCcw size={15}/> Resume my last team ({lastCode})</button>}
       </div>
       <div className="how">
-        <Step n="1" t="Add the crew" d="Type in up to 100 names — the whole family, wherever they are."/>
-        <Step n="2" t="Share out all 48" d="Every team goes to someone. Twelve players means four each; fewer means more each; more means teams get shared."/>
-        <Step n="3" t="Climb the table" d="One code lets anyone follow the family standings, predict games and track the pot."/>
+        <Step n="1" t="Add your group" d="Type in up to 100 names — the whole group, wherever they are."/>
+        <Step n="2" t="Share out all 48" d="Every team goes to someone. Twelve members means four each; fewer means more each; more means teams get shared."/>
+        <Step n="3" t="Climb the table" d="One code lets anyone follow the group standings, predict games and track the pot."/>
       </div>
     </div>
   );
@@ -215,12 +218,15 @@ function Home({ onCreate, onJoin, onResume, lastCode }){
 const Step = ({n,t,d}) => (<div className="step"><span className="step-n display">{n}</span><div><div className="step-t">{t}</div><div className="step-d">{d}</div></div></div>);
 
 /* ------------------------------ CREATE ---------------------------- */
-function Create({ back, onDone, fire }){
+function Create({ back, onDone }){
   const [name, setName] = useState("");
   const [one, setOne] = useState("");
   const [bulk, setBulk] = useState("");
   const [showBulk, setShowBulk] = useState(false);
   const [people, setPeople] = useState([]);
+  const [code, setCode] = useState(genCode(10));
+  const [err, setErr] = useState("");
+  const [busy, setBusy] = useState(false);
   const inputRef = useRef(null);
 
   const addName = (raw) => { const t=raw.trim(); if(!t) return;
@@ -230,20 +236,27 @@ function Create({ back, onDone, fire }){
   const addBulk = () => { bulk.split(/[\n,]/).forEach(addName); setBulk(""); setShowBulk(false); };
   const remove = (id) => setPeople(p=>p.filter(x=>x.id!==id));
   const perPerson = people.length ? Math.ceil(48/people.length) : 0;
+  const codeOk = /^[A-Z0-9]{10}$/.test(code);
 
-  const generate = () => {
-    const g = { code:genCode(), name:name.trim()||"Our World Cup Draw", created:Date.now(),
+  const generate = async () => {
+    const c = code.trim().toUpperCase();
+    if(people.length<2){ setErr("Add at least two members for the draw."); return; }
+    if(!/^[A-Z0-9]{10}$/.test(c)){ setErr("Your code needs to be 10 letters or numbers."); return; }
+    setBusy(true); setErr("");
+    const taken = await store.getGroup(c); setBusy(false);
+    if(taken){ setErr("That code is already taken — try another."); return; }
+    const g = { code:c, name:name.trim()||"Our World Cup Draw", created:Date.now(),
       members:people, alloc:buildAllocations(people), results:{}, pool:{amount:0,cur:"AUD",structure:"top15"} };
-    fire(); onDone(g);
+    onDone(g);
   };
 
   return (
     <div className="wrap">
       <TopBar back={back} title="New draw"/>
       <label className="field-lbl">Name your group</label>
-      <input className="input" placeholder="e.g. The Sharma Family Cup" value={name} onChange={e=>setName(e.target.value)} maxLength={48}/>
+      <input className="input" placeholder="e.g. The Crew World Cup" value={name} onChange={e=>setName(e.target.value)} maxLength={48}/>
       <div className="row-between mt">
-        <label className="field-lbl no-mb">Add players <span className="muted">({people.length}/100)</span></label>
+        <label className="field-lbl no-mb">Add members <span className="muted">({people.length}/100)</span></label>
         <button className="btn btn-mini" onClick={()=>setShowBulk(s=>!s)}>{showBulk?"Single":"Paste a list"}</button>
       </div>
       {!showBulk ? (
@@ -259,12 +272,20 @@ function Create({ back, onDone, fire }){
         </div>
       )}
       {people.length>0 && <div className="chips">{people.map(p=>(<span key={p.id} className="chip">{p.name}<button onClick={()=>remove(p.id)}><X size={13}/></button></span>))}</div>}
-      {people.length>0 && <p className="hint"><Info size={13}/> {
-        people.length<12 ? `All 48 teams get shared out, so each player holds about ${perPerson} teams — no duplicates.`
+      {people.length>=2 && <p className="hint"><Info size={13}/> {
+        people.length<12 ? `All 48 teams get shared out, so each member holds about ${perPerson} teams — no duplicates.`
         : people.length===12 ? "The sweet spot: all 48 teams, exactly four each, no duplicates."
         : "Everyone gets four teams and all 48 are covered, so the popular sides will be shared by a few people."}</p>}
+      <label className="field-lbl">Your group code <span className="muted">(everyone enters this)</span></label>
+      <div className="add-row">
+        <input className="input flex code-field display" placeholder="10 letters/numbers" value={code} maxLength={10}
+          onChange={e=>{ setCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g,"").slice(0,10)); setErr(""); }}/>
+        <button className="btn btn-ghost sq" onClick={()=>{ setCode(genCode(10)); setErr(""); }} title="Suggest a code"><Shuffle size={18}/></button>
+      </div>
+      <p className="hint"><Info size={13}/> Everyone in the group types this exact 10 character code on their device to follow the draw, the table and the pot.</p>
+      {err && <p className="err">{err}</p>}
       <div className="sticky-cta">
-        <button className="btn btn-gold big full" disabled={people.length<1} onClick={generate}><Shuffle size={20}/> Run the draw {people.length>0 && `· ${people.length}`}</button>
+        <button className="btn btn-gold big full" disabled={people.length<2 || !codeOk || busy} onClick={generate}><Shuffle size={20}/> {busy?"Checking…":`Run the draw${people.length>=2?` · ${people.length}`:""}`}</button>
       </div>
     </div>
   );
@@ -273,37 +294,145 @@ function Create({ back, onDone, fire }){
 /* ------------------------------- JOIN ----------------------------- */
 function Join({ back, onFound }){
   const [code,setCode]=useState(""); const [err,setErr]=useState(""); const [busy,setBusy]=useState(false);
-  const go = async () => { const c=code.trim().toUpperCase(); if(c.length<4){setErr("Enter your 6-character code");return;}
+  const go = async () => { const c=code.trim().toUpperCase(); if(c.length<4){setErr("Enter the group code you were given.");return;}
     setBusy(true); setErr(""); const g=await store.getGroup(c); setBusy(false);
-    if(g) onFound(g); else setErr("No group found for that code. Double-check the letters?"); };
+    if(g) onFound(g); else setErr("No group found for that code. Double-check the characters?"); };
   return (
     <div className="wrap">
-      <TopBar back={back} title="Join a group"/>
+      <TopBar back={back} title="View a team"/>
       <div className="join-card">
         <div className="ball sm">⚽</div>
-        <p className="lede center">Pop in the code a family member shared with you.</p>
-        <input className="input code-input display" placeholder="ABC123" value={code} maxLength={6}
-          onChange={e=>setCode(e.target.value.toUpperCase())} onKeyDown={e=>{ if(e.key==="Enter") go(); }}/>
+        <p className="lede center">Pop in the code the team creator shared with you to follow the draw, table and pot.</p>
+        <input className="input code-input display" placeholder="GROUPCODE1" value={code} maxLength={10}
+          onChange={e=>setCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g,"").slice(0,10))} onKeyDown={e=>{ if(e.key==="Enter") go(); }}/>
         {err && <p className="err">{err}</p>}
-        <button className="btn btn-gold big full mt-s" onClick={go} disabled={busy}>{busy?"Looking…":"Find my group"}</button>
+        <button className="btn btn-gold big full mt-s" onClick={go} disabled={busy}>{busy?"Looking…":"View the team"}</button>
       </div>
     </div>
   );
 }
 
+/* ----------------------------- CEREMONY --------------------------- */
+function Ceremony({ group, onEnter, fire }){
+  const members = group.members;
+  // squad display: strongest first
+  const teamsFor = (m) => [...(group.alloc[m.id]||[])].sort((a,b)=>tierOf(a)-tierOf(b)||TEAMS[a].r-TEAMS[b].r);
+  // team-by-team reveal order: mid, then underdog, then strong, then elite (builds the suspense)
+  const REVEAL = {3:0, 4:1, 2:2, 1:3};
+  const seqFor = (m) => [...(group.alloc[m.id]||[])].sort((a,b)=>REVEAL[tierOf(a)]-REVEAL[tierOf(b)] || TEAMS[a].r-TEAMS[b].r);
+  const [mode, setMode] = useState(null);   // null | "squad" | "team"
+  const [idx, setIdx] = useState(0);
+  const [done, setDone] = useState(false);
+
+  // team  -> round robin, adding one team per person each pass (cumulative cards)
+  // squad -> one card per person, whole allocation
+  const steps = useMemo(()=>{
+    if(mode==="squad") return members.map((_,p)=>({p, full:true}));
+    if(mode==="team"){
+      const lists = members.map(m=>seqFor(m));
+      const maxLen = Math.max(0, ...lists.map(l=>l.length));
+      const out = [];
+      for(let r=0; r<maxLen; r++) members.forEach((_,p)=>{ if(r<lists[p].length) out.push({p, r}); });
+      return out;
+    }
+    return [];
+  }, [mode, members]);
+
+  const cardElite = (st) => st.full ? teamsFor(members[st.p]).some(id=>tierOf(id)===1) : tierOf(seqFor(members[st.p])[st.r])===1;
+  const maybeConfetti = (st) => { if(st && cardElite(st)) fire(); };
+
+  const start = (m) => { const first = m==="team" ? {p:0,r:0} : {p:0,full:true}; setMode(m); setIdx(0); maybeConfetti(first); };
+  const onNext = () => { if(idx >= steps.length-1){ setDone(true); fire(); return; } const ni=idx+1; setIdx(ni); maybeConfetti(steps[ni]); };
+  const replay = () => { setDone(false); setMode(null); setIdx(0); };
+
+  const strongest = useMemo(()=>{ let best=null,bv=-1; members.forEach(m=>{ const v=(group.alloc[m.id]||[]).reduce((s,id)=>s+(49-TEAMS[id].r),0); if(v>bv){bv=v;best=m;} }); return best; }, [group, members]);
+  const credit = <a className="pp-credit ceremony-credit" href="https://profit-pulse.com.au" target="_blank" rel="noopener noreferrer">Built by ProfitPulse</a>;
+
+  if(done) return (
+    <div className="wrap cer">
+      <div className="cer-done">
+        <div className="ball">🏆</div>
+        <h1 className="display cer-h">The draw<br/><span className="gold">is done!</span></h1>
+        <p className="lede center">All teams are shared out across {members.length} members.{strongest && <> Strongest squad on paper goes to <b>{strongest.name}</b>.</>}</p>
+        <button className="btn btn-gold big full" onClick={onEnter}><Trophy size={20}/> See the group table</button>
+        <button className="btn btn-link" onClick={replay}><RotateCcw size={15}/> Replay the draw</button>
+      </div>
+      {credit}
+    </div>
+  );
+
+  if(!mode) return (
+    <div className="wrap cer">
+      <p className="kicker center">The big draw</p>
+      <h1 className="display cer-h center">Time for<br/><span className="gold">the draw</span></h1>
+      <p className="lede center">Gather everyone round one screen, choose a style, then tap through to reveal who gets whom.</p>
+      <div className="mode-grid">
+        <button className="mode-card" onClick={()=>start("team")}>
+          <Sparkles size={26}/>
+          <div className="mode-t">Team by team</div>
+          <div className="mode-d">One team at a time, going round the group, building up to the big sides.</div>
+        </button>
+        <button className="mode-card" onClick={()=>start("squad")}>
+          <Users size={26}/>
+          <div className="mode-t">Whole squads</div>
+          <div className="mode-d">Each member's full set of teams, one member at a time.</div>
+        </button>
+      </div>
+      <button className="btn btn-ghost full mt-s" onClick={onEnter}><Shuffle size={18}/> Skip it, just deal them out</button>
+      {credit}
+    </div>
+  );
+
+  const st = steps[idx];
+  const person = members[st.p];
+  const total = (group.alloc[person.id]||[]).length;
+  const shown = st.full ? total : st.r+1;
+  const display = st.full ? teamsFor(person) : seqFor(person).slice(0, shown).reverse(); // team: newest on top
+  const atEnd = idx >= steps.length-1;
+  const nextName = atEnd ? null : members[steps[idx+1].p].name;
+  const progress = mode==="squad" ? `Member ${idx+1} of ${steps.length}` : `Draw ${idx+1} of ${steps.length}`;
+
+  return (
+    <div className="wrap cer">
+      <div className="cer-top"><span className="cer-prog">{progress}</span></div>
+      <div className="cer-card" key={idx}>
+        <div className="cer-name display">{person.name}</div>
+        <div className="cer-sub">{st.full ? `${total} teams` : `Team ${shown} of ${total}`}</div>
+        <div className="cer-teams">
+          {display.map((id,i)=>{
+            const isNew = mode==="squad" ? true : i===0;
+            return (
+              <div className={"cer-team"+(isNew?" pop":"")} key={id} style={isNew ? {animationDelay:`${mode==="squad"?Math.min(i*0.05,0.8):0}s`} : undefined}>
+                <span className="ct-flag">{TEAMS[id].f}</span>
+                <span className="ct-name">{TEAMS[id].n}</span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+      <div className="sticky-cta">
+        <button className="btn btn-gold big full" onClick={onNext}><Sparkles size={18}/> {atEnd ? "Finish the draw" : `Next: ${nextName}`}</button>
+      </div>
+      {credit}
+    </div>
+  );
+}
+
 /* ---------------------------- GROUP VIEW -------------------------- */
-function GroupView({ group, preds, setPreds, saveGroup, exit }){
+function GroupView({ group, preds, setPreds, mine, toggleMine, saveGroup, exit, isCreator, onCeremony }){
   const [tab, setTab] = useState("ranks");
   const [project, setProject] = useState(false);
   const [now, setNow] = useState(Date.now());
   const [openCard, setOpenCard] = useState(null);
   useEffect(()=>{ const t=setInterval(()=>setNow(Date.now()),1000); return ()=>clearInterval(t); },[]);
 
+  const primary = mine[0];
+  const myPreds = (primary && preds[primary]) ? preds[primary] : {};
   const effResults = useMemo(()=>{
     const r = {...group.results};
-    if(project){ for(const fx of FIXTURES){ if(!r[fx.id] && preds[fx.id]) r[fx.id]=predResult(preds[fx.id]); } }
+    if(project){ for(const fx of FIXTURES){ if(!r[fx.id] && myPreds[fx.id]) r[fx.id]=predResult(myPreds[fx.id]); } }
     return r;
-  }, [group.results, preds, project]);
+  }, [group.results, preds, mine, project]);
 
   const standings = useMemo(()=>{
     const rows = group.members.map(m=>{
@@ -340,24 +469,25 @@ function GroupView({ group, preds, setPreds, saveGroup, exit }){
     <div className="wrap group">
       <div className="grp-head">
         <button className="icon-btn" onClick={exit}><ArrowLeft size={20}/></button>
-        <div className="grp-id"><div className="grp-name display">{group.name}</div><div className="grp-meta">{group.members.length} players</div></div>
+        <div className="grp-id"><div className="grp-name display">{group.name}</div><div className="grp-meta">{group.members.length} members</div></div>
         <CodePill code={group.code}/>
       </div>
       <Banner nextFx={nextFx} lastFx={lastFx} now={now} leader={anyPlayed?standings[0]:null} results={group.results}/>
+      {isCreator && <button className="replay-draw" onClick={onCeremony}><Sparkles size={14}/> Watch the draw again</button>}
       <div className="tabs">
         {tabs.map(t=>(<button key={t.k} className={"tab"+(tab===t.k?" on":"")} onClick={()=>setTab(t.k)}>{t.icon}<span>{t.label}</span></button>))}
       </div>
 
       {tab==="ranks" &&
         <button className={"crystal"+(project?" on":"")} onClick={()=>setProject(p=>!p)}>
-          <Wand2 size={16}/> {project ? "Showing the predicted family table — tap for live only" : "Crystal Ball: project everyone's picks onto the table"}
+          <Wand2 size={16}/> {project ? "Showing the table from your picks — tap for live only" : "Crystal Ball: project your own picks onto the table"}
         </button>}
 
       {tab==="ranks" && <RanksTab standings={standings} titles={titles} anyPlayed={anyPlayed} pool={group.pool} project={project}/>}
       {tab==="squads" && <SquadsTab standings={standings} titles={titles} anyPlayed={anyPlayed} teamHolders={teamHolders} openCard={openCard} setOpenCard={setOpenCard}/>}
-      {tab==="predict" && <PredictTab group={group} preds={preds} setPreds={setPreds} now={now}/>}
+      {tab==="predict" && <PredictTab group={group} preds={preds} setPreds={setPreds} mine={mine} toggleMine={toggleMine} now={now}/>}
       {tab==="cup" && <CupTab group={group} setResult={setResult} nextFx={nextFx}/>}
-      {tab==="pot" && <PotTab group={group} standings={standings} saveGroup={saveGroup} project={project}/>}
+      {tab==="pot" && <PotTab group={group} standings={standings} saveGroup={saveGroup} project={project} anyPlayed={anyPlayed}/>}
     </div>
   );
 }
@@ -383,7 +513,7 @@ function Banner({ nextFx, lastFx, now, leader, results }){
   const cd = nextFx ? countdown(nextFx.ko - now) : null;
   return (
     <div className="banner">
-      {leader && <div className="brag"><Crown size={15}/> <b>{leader.name}</b> leads the family · {leader.pts} pts</div>}
+      {leader && <div className="brag"><Crown size={15}/> <b>{leader.name}</b> leads the group · {leader.pts} pts</div>}
       <div className="banner-grid">
         {nextFx ? (
           <div className="bcell next">
@@ -413,9 +543,9 @@ function RanksTab({ standings, titles, anyPlayed, pool, project }){
   const payouts = pool.amount>0 ? computePayouts(standings, pool) : null;
   return (
     <div>
-      <div className="section-head"><span className="display sh-title">Family standings</span>
-        <span className="sh-sub">{standings.length} players · {project?"projected":(anyPlayed?"live":"not started")}</span></div>
-      {!anyPlayed && <p className="empty-note"><Sparkles size={15}/> The draw is set. Once games kick off (or you fill in the Predict tab), the family leaderboard comes alive.</p>}
+      <div className="section-head"><span className="display sh-title">Group standings</span>
+        <span className="sh-sub">{standings.length} members · {project?"projected":(anyPlayed?"live":"not started")}</span></div>
+      {!anyPlayed && <p className="empty-note"><Sparkles size={15}/> The draw is set. Once games kick off (or you fill in the Predict tab), the group leaderboard comes alive.</p>}
       <div className="board">
         {standings.map((s,i)=>(
           <div key={s.id} className={"lb-row"+(s.rank===1&&anyPlayed?" lead":"")}>
@@ -431,7 +561,7 @@ function RanksTab({ standings, titles, anyPlayed, pool, project }){
           </div>
         ))}
       </div>
-      <p className="hint center"><Info size={13}/> Scores reward wins, goal margins, clean sheets and giant-killing upsets across all of a player's teams.</p>
+      <p className="hint center"><Info size={13}/> Scores reward wins, goal margins, clean sheets and giant-killing upsets across all of a member's teams.</p>
     </div>
   );
 }
@@ -441,7 +571,7 @@ function SquadsTab({ standings, titles, anyPlayed, teamHolders, openCard, setOpe
   const alpha = [...standings].sort((a,b)=>a.name.localeCompare(b.name));
   const hasDupes = Object.values(teamHolders||{}).some(c=>c>1);
   return (<div className="squads">
-    {hasDupes && <p className="hint"><Info size={13}/> With more than 12 players, every team is still allocated and the popular sides are shared. A <span className="t-share inline">×N</span> tag shows how many players hold that team.</p>}
+    {hasDupes && <p className="hint"><Info size={13}/> With more than 12 members, every team is still allocated and the popular sides are shared. A <span className="t-share inline">×N</span> tag shows how many members hold that team.</p>}
     {alpha.map(s=>(
     <Card key={s.id} s={s} titles={titles[s.id]||[]} anyPlayed={anyPlayed} teamHolders={teamHolders} open={openCard===s.id} onToggle={()=>setOpenCard(o=>o===s.id?null:s.id)}/>
   ))}</div>);
@@ -462,8 +592,7 @@ function Card({ s, titles, anyPlayed, teamHolders, open, onToggle }){
           <div className="team-row" key={t.id}>
             <span className="t-flag">{TEAMS[t.id].f}</span>
             <span className="t-name">{TEAMS[t.id].n}</span>
-            <span className="t-tier" style={{background:TIER_VAR[tierOf(t.id)]}}>{TIER_NAMES[tierOf(t.id)]}</span>
-            {teamHolders&&teamHolders[t.id]>1 && <span className="t-share" title={`Held by ${teamHolders[t.id]} players`}>×{teamHolders[t.id]}</span>}
+            {teamHolders&&teamHolders[t.id]>1 && <span className="t-share" title={`Held by ${teamHolders[t.id]} members`}>×{teamHolders[t.id]}</span>}
             <span className="t-rec">{t.pld>0?`${t.w}-${t.d}-${t.l}`:"—"}</span>
             <span className="t-pts display">{t.pts}</span>
           </div>
@@ -474,58 +603,130 @@ function Card({ s, titles, anyPlayed, teamHolders, open, onToggle }){
 }
 
 /* ---------------------------- PREDICT ----------------------------- */
-function PredictTab({ group, preds, setPreds, now }){
-  const setPick = (fx,p) => { if(now>=fx.ko || group.results[fx.id]) return; setPreds({...preds, [fx.id]: preds[fx.id]===p?undefined:p}); };
+function PredictTab({ group, preds, setPreds, mine, toggleMine, now }){
+  const members = group.members;
+  const managed = members.filter(m=>mine.includes(m.id));
+  const setPick = (memId, fx, p) => {
+    if(now>=fx.ko || group.results[fx.id]) return;
+    const cur = preds[memId] ? {...preds[memId]} : {};
+    cur[fx.id] = cur[fx.id]===p ? undefined : p;
+    setPreds({ ...preds, [memId]: cur });
+  };
+
+  const anyResult = FIXTURES.some(fx=>group.results[fx.id]);
   const upcoming = FIXTURES.filter(fx=> now < fx.ko && !group.results[fx.id]);
-  const picked = upcoming.filter(fx=>preds[fx.id]).length;
-  const byRound = [0,1,2].map(r=>({r, list:FIXTURES.filter(fx=>fx.round===r)}));
+  const reveal = FIXTURES.filter(fx=> now>=fx.ko || group.results[fx.id]).sort((a,b)=>b.ko-a.ko);
+  const pickedCount = (id) => upcoming.filter(fx=>(preds[id]||{})[fx.id]).length;
+
+  const board = useMemo(()=>{
+    const rows = members.map(m=>{
+      let correct=0, called=0;
+      for(const fx of FIXTURES){
+        const res = group.results[fx.id]; if(!res) continue;
+        const pk = preds[m.id] && preds[m.id][fx.id]; if(!pk) continue;
+        called++; if(outcome(res)===pk) correct++;
+      }
+      return { ...m, correct, called };
+    });
+    rows.sort((a,b)=> b.correct-a.correct || b.called-a.called || a.name.localeCompare(b.name));
+    let rank=0,prev=null; rows.forEach((r,i)=>{ if(prev===null||r.correct!==prev){rank=i+1;prev=r.correct;} r.rank=rank; });
+    return rows;
+  }, [members, preds, group.results]);
+
   return (
     <div>
-      <div className="section-head"><span className="display sh-title">Your predictions</span>
-        <span className="sh-sub">{picked}/{upcoming.length} upcoming picked</span></div>
-      <p className="hint"><Info size={13}/> Pick a result for any game that hasn't kicked off. Picks lock the moment the whistle blows. Turn on the Crystal Ball in the Ranks tab to see how your picks reshape the family table.</p>
-      {byRound.map(({r,list})=>(
-        <div key={r}>
-          <div className="md-head">Matchday {r+1}</div>
-          <div className="fixtures">
-            {list.map(fx=>{
-              const res = group.results[fx.id];
-              const locked = now>=fx.ko || res;
-              const pick = preds[fx.id];
-              const correct = res && pick ? (outcome(res)===pick) : null;
-              return (
-                <div className={"fx"+(res?" done":"")} key={fx.id}>
-                  <div className="fx-top"><span className="fx-grp">Grp {fx.grp}</span>
-                    <span className="fx-date">{res? `Full time ${res.h}–${res.a}` : (now>=fx.ko? "Kicked off" : fmtDate(fx.ko))}</span></div>
+      <div className="section-head"><span className="display sh-title">Predictions league</span>
+        <span className="sh-sub">{managed.length? `${managed.length} on this device` : "pick the winners"}</span></div>
+
+      <div className="me-pick">
+        <span className="me-lbl">You're predicting for</span>
+        <div className="me-chips">
+          {members.map(m=>(<button key={m.id} className={"me-chip"+(mine.includes(m.id)?" on":"")} onClick={()=>toggleMine(m.id)}>{m.name}</button>))}
+        </div>
+      </div>
+      <p className="hint"><Info size={13}/> Tap everyone you're entering picks for, including kids without their own phone. One device can hold several people's predictions.</p>
+
+      <div className="md-head">Standings</div>
+      {anyResult ? (
+        <div className="board">
+          {board.map(s=>(
+            <div key={s.id} className={"pl-row"+(s.rank===1?" lead":"")}>
+              <span className="pl-rank display">{s.rank}</span>
+              <span className="pl-name">{s.name}{mine.includes(s.id) && <span className="pl-you">yours</span>}</span>
+              <span className="pl-stat">{s.correct} correct of {s.called}</span>
+              <span className="pl-pts display">{s.correct}<span>pts</span></span>
+            </div>
+          ))}
+        </div>
+      ) : <p className="hint"><Info size={13}/> The standings light up as games finish. Each correct winner is worth one point.</p>}
+
+      <div className="md-head">Upcoming picks</div>
+      {managed.length===0 ? <p className="hint"><Info size={13}/> Tap the names above to start predicting. Picks lock at kick-off and stay hidden from everyone else until then.</p>
+        : <>
+          <div className="pred-progress">
+            {managed.map(m=>(<span className="prog-item" key={m.id}><b>{m.name}</b> {pickedCount(m.id)}/{upcoming.length}</span>))}
+          </div>
+          {upcoming.length===0 ? <p className="hint"><Info size={13}/> No games left to predict right now.</p>
+          : <div className="fixtures">
+              {upcoming.map(fx=>(
+                <div className="fx" key={fx.id}>
+                  <div className="fx-top"><span className="fx-grp">Grp {fx.grp}</span><span className="fx-date">{fmtDate(fx.ko)}</span></div>
                   <div className="fx-main">
                     <div className="fx-team"><span className="flag">{TEAMS[fx.home].f}</span><span>{TEAMS[fx.home].n}</span></div>
                     <span className="fx-mid">v</span>
                     <div className="fx-team r"><span>{TEAMS[fx.away].n}</span><span className="flag">{TEAMS[fx.away].f}</span></div>
                   </div>
-                  {!locked ? (
-                    <div className="pred-row">
-                      <span className="pred-lbl">Pick:</span>
-                      {[["home",TEAMS[fx.home].f],["draw","Draw"],["away",TEAMS[fx.away].f]].map(([p,lbl])=>(
-                        <button key={p} className={"pred-btn"+(pick===p?" on":"")} onClick={()=>setPick(fx,p)}>{lbl}</button>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="pred-row locked-row">
-                      <Lock size={12}/>
-                      {pick ? (
-                        <span className={"pick-locked"+(correct===true?" hit":correct===false?" miss":"")}>
-                          You picked {pick==="draw"?"Draw":pick==="home"?TEAMS[fx.home].n:TEAMS[fx.away].n}
-                          {correct===true?" ✓":correct===false?" ✗":""}
-                        </span>
-                      ) : <span className="pick-locked muted">No pick {res?"made":"before kick-off"}</span>}
-                    </div>
-                  )}
+                  {managed.map(m=>{
+                    const pick = (preds[m.id]||{})[fx.id];
+                    return (
+                      <div className="pick-line" key={m.id}>
+                        {managed.length>1 && <span className="pick-who">{m.name}</span>}
+                        <div className="pred-row">
+                          {[["home",fx.home],["draw","Draw"],["away",fx.away]].map(([p,lbl])=>(
+                            <button key={p} className={"pred-btn"+(pick===p?" on":"")} onClick={()=>setPick(m.id,fx,p)}>{lbl}</button>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
-              );
-            })}
-          </div>
+              ))}
+            </div>}
+        </>}
+
+      {reveal.length>0 && <>
+        <div className="md-head">Results &amp; everyone's calls</div>
+        <div className="fixtures">
+          {reveal.map(fx=>{
+            const res = group.results[fx.id];
+            const act = res ? outcome(res) : null;
+            return (
+              <div className={"fx"+(res?" done":"")} key={fx.id}>
+                <div className="fx-top"><span className="fx-grp">Grp {fx.grp}</span>
+                  <span className="fx-date">{res? `Full time ${res.h}–${res.a}` : "Kicked off"}</span></div>
+                <div className="fx-main">
+                  <div className="fx-team"><span className="flag">{TEAMS[fx.home].f}</span><span>{TEAMS[fx.home].n}</span></div>
+                  <span className="fx-mid">v</span>
+                  <div className="fx-team r"><span>{TEAMS[fx.away].n}</span><span className="flag">{TEAMS[fx.away].f}</span></div>
+                </div>
+                <div className="calls">
+                  {members.map(m=>{
+                    const pk = preds[m.id] && preds[m.id][fx.id];
+                    const right = act && pk ? pk===act : null;
+                    const lbl = !pk ? "no pick" : pk==="draw" ? "Draw" : pk==="home" ? TEAMS[fx.home].n : TEAMS[fx.away].n;
+                    return (
+                      <div className={"call"+(right===true?" hit":right===false?" miss":"")} key={m.id}>
+                        <span className="call-name">{m.name}{mine.includes(m.id) && <span className="call-mine">yours</span>}</span>
+                        <span className="call-pick">{lbl}{right===true?" ✓":right===false?" ✗":""}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
         </div>
-      ))}
+      </>}
     </div>
   );
 }
@@ -569,7 +770,7 @@ function CupTab({ group, setResult, nextFx }){
           );
         })}
       </div>
-      <p className="hint"><Info size={13}/> Anyone in the group can enter a final score here. Results flow straight into both the real group table above and the family standings.</p>
+      <p className="hint"><Info size={13}/> Anyone in the group can enter a final score here. Results flow straight into both the real group table above and the group standings.</p>
     </div>
   );
 }
@@ -595,8 +796,9 @@ const STRUCTURES = [
   {k:"even", t:"Everyone shares", d:"Split evenly — pure participation fun."},
   {k:"champion", t:"Back the Champion", d:"20% held for whoever owns the team that wins the Cup; the rest via the top-15% taper."},
 ];
-function PotTab({ group, standings, saveGroup, project }){
+function PotTab({ group, standings, saveGroup, project, anyPlayed }){
   const { pool } = group; const set=(patch)=>saveGroup({...group, pool:{...pool, ...patch}});
+  const live = anyPlayed || project;
   const payouts = pool.amount>0 ? computePayouts(standings, pool) : {};
   const reserve = pool.structure==="champion" && pool.amount>0 ? pool.amount*0.2 : 0;
   const winners = standings.filter(s=>payouts[s.id]>0);
@@ -616,14 +818,16 @@ function PotTab({ group, standings, saveGroup, project }){
           <div className="struct-t">{s.t}{pool.structure===s.k&&<Check size={15}/>}</div><div className="struct-d">{s.d}</div>
         </button>))}</div>
       {pool.amount>0 ? (
+        live ? (
         <div className="payout-box">
           <div className="payout-head">If it ended {project?"on the predicted table":"right now"}…</div>
           {reserve>0 && <div className="reserve">🏆 {money(reserve,pool.cur)} held for the Champion's backer — decided at the Final</div>}
           {winners.length>0 ? winners.map(s=>(
             <div className="payout-row" key={s.id}><span className="po-rank display">{s.rank}</span><span className="po-name">{s.name}</span><span className="po-amt display">{money(payouts[s.id],pool.cur)}</span></div>
-          )) : <div className="muted center pad">Log or predict some results to see who's in the money.</div>}
+          )) : <div className="muted center pad">No results yet to split on.</div>}
         </div>
-      ) : <p className="hint center"><Coins size={14}/> Set a pot above and pick a split. The numbers update live as results come in.</p>}
+        ) : <p className="hint center"><Coins size={14}/> The split appears here once real match results are in. To preview it from predictions instead, switch on the Crystal Ball in the Ranks tab.</p>
+      ) : <p className="hint center"><Coins size={14}/> Set a pot above and pick a split. The numbers come alive once results are in.</p>}
       <p className="disclaimer"><Info size={13}/> The app only tracks the pot and suggests a split. Settle up between yourselves — no money moves through here.</p>
     </div>
   );
@@ -673,10 +877,7 @@ const CSS = `
 .display{font-family:'Anton',sans-serif;letter-spacing:.015em;text-transform:uppercase;line-height:.96;font-weight:400}
 .gold{color:var(--gold)}.muted{color:rgba(251,247,236,.55);font-weight:500}.center{text-align:center}
 .wrap{max-width:680px;margin:0 auto;padding:20px 16px 130px;position:relative;z-index:1}
-.foot{position:relative;z-index:1;text-align:center;font-size:11px;color:rgba(251,247,236,.45);padding:0 16px 26px;max-width:680px;margin:-110px auto 0;line-height:1.6}
-.foot-credit{display:block;margin-top:6px}
-.foot-link{color:var(--gold);font-weight:700;text-decoration:none;border-bottom:1px solid rgba(255,210,63,.45)}
-.foot-link:hover{border-bottom-color:var(--gold)}
+.foot{position:relative;z-index:1;text-align:center;font-size:11px;color:rgba(251,247,236,.45);padding:0 16px 26px;max-width:680px;margin:-110px auto 0}
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:9px;border:none;cursor:pointer;font-family:'Outfit';font-weight:700;font-size:15px;border-radius:14px;padding:13px 18px;transition:transform .12s,box-shadow .12s,background .15s;color:var(--ink)}
 .btn:active{transform:scale(.97)}
 .btn-gold{background:linear-gradient(180deg,#ffe066,#f4b400);color:#3a2a00;box-shadow:0 6px 0 #b88600,0 10px 22px rgba(0,0,0,.3)}
@@ -722,7 +923,7 @@ const CSS = `
 .icon-btn{background:rgba(255,255,255,.08);border:1px solid var(--line);color:var(--cream);width:40px;height:40px;border-radius:12px;display:grid;place-items:center;cursor:pointer}
 .icon-btn:active{transform:scale(.94)}
 .join-card{text-align:center;background:rgba(255,255,255,.05);border:1px solid var(--line);border-radius:20px;padding:30px 22px;margin-top:30px}
-.code-input{text-align:center;letter-spacing:.35em;font-size:30px;padding:16px;margin-top:18px}
+.code-input{text-align:center;letter-spacing:.18em;font-size:24px;padding:16px;margin-top:18px}
 .group{padding-top:14px}
 .grp-head{display:flex;align-items:center;gap:12px;margin-bottom:14px}
 .grp-id{flex:1;min-width:0}
@@ -731,7 +932,44 @@ const CSS = `
 .code-pill{display:flex;flex-direction:column;align-items:center;gap:1px;background:linear-gradient(180deg,#ffe066,#f4b400);border:none;border-radius:13px;padding:7px 13px;cursor:pointer;color:#3a2a00;position:relative;box-shadow:0 4px 0 #b88600}
 .code-pill:active{transform:translateY(2px);box-shadow:0 2px 0 #b88600}
 .code-lbl{font-size:9px;font-weight:800;letter-spacing:.15em}
-.code-val{font-size:18px;letter-spacing:.08em}
+.code-val{font-size:15px;letter-spacing:.04em}
+.code-field{letter-spacing:.16em;font-weight:700}
+/* ProfitPulse credit */
+.pp-top{display:flex;align-items:center;gap:5px;width:fit-content;margin:12px auto 2px;padding:5px 13px;border:1px solid rgba(255,210,63,.4);border-radius:20px;background:rgba(255,210,63,.1);color:var(--gold);font-size:12px;font-weight:700;letter-spacing:.03em;text-decoration:none;position:relative;z-index:2}
+.pp-top b{font-weight:800}
+.pp-top:active{transform:scale(.97)}
+.pp-credit{display:inline-block;color:var(--gold);font-weight:700;font-size:13px;text-decoration:none;border-bottom:1px solid rgba(255,210,63,.45)}
+.ceremony-credit{display:block;width:fit-content;margin:26px auto 0;text-align:center}
+/* Ceremony */
+.cer{padding-top:8px}
+.cer-h{font-size:clamp(34px,9vw,52px);margin:6px 0 0}
+.mode-grid{display:grid;gap:12px;margin:24px 0 14px}
+.mode-card{background:var(--card);border:1.5px solid var(--line);border-radius:18px;padding:20px 16px;cursor:pointer;color:var(--cream);text-align:center;transition:transform .12s,border-color .15s}
+.mode-card:active{transform:scale(.98)}
+.mode-card:hover{border-color:rgba(255,210,63,.45)}
+.mode-card svg{color:var(--gold)}
+.mode-t{font-family:'Anton',sans-serif;text-transform:uppercase;letter-spacing:.02em;font-size:19px;margin:9px 0 4px}
+.mode-d{font-size:13px;color:rgba(251,247,236,.62);line-height:1.45}
+.sound-toggle{display:none}
+.cer-top{display:flex;align-items:center;justify-content:space-between;margin:6px 0 12px}
+.cer-prog{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--gold);font-weight:700}
+.cer-card{background:linear-gradient(180deg,#0f3220,#0a2417);border:1.5px solid rgba(255,210,63,.25);border-radius:22px;padding:22px 16px;min-height:300px;animation:cardin .35s ease}
+@keyframes cardin{from{opacity:0;transform:translateY(14px) scale(.97)}to{opacity:1;transform:none}}
+.cer-name{font-size:clamp(30px,8vw,46px);color:var(--cream);text-align:center;line-height:1}
+.cer-sub{font-size:13px;color:rgba(251,247,236,.6);margin:5px 0 16px;text-align:center}
+.cer-teams{display:flex;flex-direction:column;gap:9px;max-height:46vh;overflow-y:auto;padding:2px}
+.cer-team{display:flex;align-items:center;gap:12px;background:rgba(255,255,255,.05);border:1px solid var(--line);border-left:4px solid rgba(255,210,63,.5);border-radius:13px;padding:11px 13px}
+.cer-team.tier1{border-left-color:var(--t1)}.cer-team.tier2{border-left-color:var(--t2)}.cer-team.tier3{border-left-color:var(--t3)}.cer-team.tier4{border-left-color:var(--t4)}
+.cer-team.hidden{justify-content:center;border-style:dashed;border-left-width:1px;color:rgba(251,247,236,.3);min-height:46px}
+.cer-team.pop{animation:pop .42s cubic-bezier(.2,1.3,.4,1) both}
+@keyframes pop{from{opacity:0;transform:scale(.6)}to{opacity:1;transform:scale(1)}}
+.ct-flag{font-size:26px;flex:none}
+.ct-name{flex:1;text-align:left;font-weight:700;font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ct-tier{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:#06160e;padding:3px 8px;border-radius:6px;flex:none}
+.ct-q{font-family:'Anton',sans-serif;font-size:22px}
+.cer-done{text-align:center;padding-top:18px}
+.cer-done .ball{font-size:60px}
+.cer-done .btn-gold{margin-top:8px}
 .code-pill svg{position:absolute;top:5px;right:5px;opacity:.6}
 .banner{background:rgba(0,0,0,.22);border:1px solid var(--line);border-radius:17px;padding:13px;margin-bottom:14px}
 .brag{display:flex;align-items:center;gap:7px;font-size:13px;background:rgba(255,210,63,.13);border:1px solid rgba(255,210,63,.3);color:#ffe89a;padding:8px 12px;border-radius:11px;margin-bottom:11px}
@@ -753,6 +991,8 @@ const CSS = `
 .tab.on{background:linear-gradient(180deg,#ffe066,#f4b400);color:#3a2a00}
 .tab:not(.on):active{background:rgba(255,255,255,.06)}
 .crystal{display:flex;align-items:center;gap:8px;width:100%;justify-content:center;background:rgba(57,169,219,.12);border:1px solid rgba(57,169,219,.35);color:#9fdcf2;font-family:'Outfit';font-weight:600;font-size:13px;padding:11px;border-radius:12px;margin-bottom:14px;cursor:pointer}
+.replay-draw{display:flex;align-items:center;justify-content:center;gap:7px;width:100%;background:rgba(255,210,63,.1);border:1px solid rgba(255,210,63,.35);color:#ffe89a;font-family:'Outfit';font-weight:600;font-size:13px;padding:10px;border-radius:12px;margin-bottom:12px;cursor:pointer}
+.replay-draw:active{transform:scale(.99)}
 .crystal.on{background:rgba(255,210,63,.16);border-color:rgba(255,210,63,.4);color:#ffe89a}
 .section-head{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:12px}
 .sh-title{font-size:22px}
@@ -809,12 +1049,39 @@ const CSS = `
 .clr{position:absolute;right:-21px;background:rgba(255,122,89,.2);border:none;color:#ff9b7d;width:18px;height:18px;border-radius:50%;display:grid;place-items:center;cursor:pointer}
 .pred-row{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:11px;padding-top:11px;border-top:1px solid rgba(255,255,255,.07)}
 .pred-lbl{font-size:11px;color:rgba(251,247,236,.5);font-weight:600}
+.pick-line{display:flex;align-items:center;gap:10px;margin-top:9px;padding-top:9px;border-top:1px solid rgba(255,255,255,.06)}
+.pick-line .pred-row{margin:0;padding:0;border:0;flex:1;flex-wrap:nowrap}
+.pick-line .pred-btn{flex:1;text-align:center;padding-left:4px;padding-right:4px}
+.pick-who{font-size:12.5px;font-weight:700;color:rgba(251,247,236,.78);min-width:54px;max-width:96px;flex:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pred-progress{display:flex;flex-wrap:wrap;gap:7px;margin:0 0 11px}
+.prog-item{font-size:11.5px;color:rgba(251,247,236,.62);background:rgba(255,255,255,.05);border:1px solid var(--line);border-radius:8px;padding:4px 9px}
+.prog-item b{color:var(--cream);font-weight:700}
+.call-mine{font-size:8px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:#06160e;background:var(--gold);padding:1px 5px;border-radius:4px;margin-left:6px;vertical-align:middle}
 .pred-btn{background:rgba(255,255,255,.06);border:1px solid var(--line);color:rgba(251,247,236,.8);font-family:'Outfit';font-weight:600;font-size:13px;padding:6px 12px;border-radius:9px;cursor:pointer}
 .pred-btn.on{background:rgba(57,169,219,.22);border-color:rgba(57,169,219,.55);color:#bfe8fa}
 .locked-row{color:rgba(251,247,236,.55)}
 .locked-row svg{flex:none}
 .pick-locked{font-size:12px;font-weight:600}
 .pick-locked.hit{color:#7be08c}.pick-locked.miss{color:#ff9b7d}
+.me-pick{display:flex;align-items:center;gap:10px;background:rgba(255,255,255,.05);border:1px solid var(--line);border-radius:13px;padding:11px 13px;margin-bottom:6px;flex-wrap:wrap}
+.me-lbl{font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:rgba(251,247,236,.55);flex:none}
+.me-chips{display:flex;gap:6px;flex-wrap:wrap}
+.me-chip{background:rgba(255,255,255,.07);border:1px solid var(--line);color:rgba(251,247,236,.8);font-family:'Outfit';font-weight:600;font-size:13px;padding:6px 12px;border-radius:20px;cursor:pointer}
+.me-chip.on{background:linear-gradient(180deg,#ffe066,#f4b400);color:#3a2a00;border-color:transparent}
+.pl-row{display:flex;align-items:center;gap:12px;background:var(--card);border:1px solid var(--line);border-radius:13px;padding:10px 13px;margin-bottom:7px}
+.pl-row.lead{border-color:rgba(255,210,63,.5);background:linear-gradient(90deg,rgba(255,210,63,.12),var(--card) 60%)}
+.pl-rank{font-size:18px;width:22px;text-align:center;color:rgba(251,247,236,.55);flex:none}
+.pl-name{flex:1;font-weight:700;font-size:15px;display:flex;align-items:center;gap:7px;min-width:0}
+.pl-you{font-size:9px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#06160e;background:var(--gold);padding:2px 6px;border-radius:5px}
+.pl-stat{font-size:11.5px;color:rgba(251,247,236,.6);flex:none}
+.pl-pts{font-size:21px;color:var(--gold);flex:none;text-align:right}
+.pl-pts span{display:block;font-size:8.5px;color:rgba(251,247,236,.5);letter-spacing:.1em}
+.calls{display:flex;flex-direction:column;gap:1px;margin-top:11px;padding-top:10px;border-top:1px solid rgba(255,255,255,.07)}
+.call{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:5px 0;font-size:13px}
+.call-name{color:rgba(251,247,236,.7);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.call-pick{color:rgba(251,247,236,.5);font-weight:600;flex:none}
+.call.hit .call-pick{color:#7be08c}.call.miss .call-pick{color:#ff9b7d}
+.call.hit .call-name{color:var(--cream)}
 .grp-sel{display:flex;gap:6px;overflow-x:auto;padding-bottom:6px;margin-bottom:6px;-webkit-overflow-scrolling:touch}
 .grp-chip{flex:none;width:38px;height:38px;border-radius:11px;background:rgba(255,255,255,.06);border:1px solid var(--line);color:rgba(251,247,236,.7);font-family:'Anton';font-size:16px;cursor:pointer}
 .grp-chip.on{background:linear-gradient(180deg,#ffe066,#f4b400);color:#3a2a00;border-color:transparent}

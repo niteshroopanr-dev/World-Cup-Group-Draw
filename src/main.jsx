@@ -1,3 +1,4 @@
+import "./storage-shim.js";
 import React from "react";
 import ReactDOM from "react-dom/client";
 import WorldCupFamilyDraw from "./App.jsx";
