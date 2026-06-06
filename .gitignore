@@ -32,3 +32,7 @@ dist-ssr
 # Internal planning doc & original prototype — kept local, not published
 world-cup-build-brief.md
 world-cup-family-draw.jsx
+
+# Supabase CLI local temp/state
+supabase/.temp/
+supabase/.branches/
