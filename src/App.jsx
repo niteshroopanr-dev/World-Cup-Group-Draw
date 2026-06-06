@@ -207,12 +207,38 @@ export default function WorldCupFamilyDraw(){
   const [lastCode, setLastCode] = useState(null);
   const [boom, setBoom] = useState(0);
   const [isCreator, setIsCreator] = useState(false);
+  const [matches, setMatches] = useState({});
 
   useEffect(() => {
     const link = document.createElement("link");
     link.rel="stylesheet"; link.href="https://fonts.googleapis.com/css2?family=Anton&family=Outfit:wght@300;400;500;600;700;800&display=swap";
     document.head.appendChild(link);
     store.getLast().then(c => { if(c) setLastCode(c); });
+  }, []);
+
+  // Live World Cup feed: read the shared, tournament-wide `matches` table (read-only, anon) and
+  // keep it in sync via Realtime, so real kick-off times, statuses and scores appear live across
+  // devices. Keyed by the app fixture id; only group-stage rows (non-null fixture) matter here.
+  useEffect(() => {
+    if(!supabase) return;
+    let active = true;
+    (async () => {
+      const { data } = await supabase.from("matches")
+        .select("fixture,kickoff,status,home_score,away_score").not("fixture","is",null);
+      if(!active) return;
+      const out = {}; (data||[]).forEach(r=>{ if(r.fixture) out[r.fixture]=r; }); setMatches(out);
+    })();
+    const ch = supabase.channel("wcfd:matches")
+      .on("postgres_changes", { event:"*", schema:"public", table:"matches" }, (p) => {
+        setMatches(prev => {
+          const out = {...prev};
+          if(p.eventType==="DELETE"){ const fx=p.old?.fixture; if(fx) delete out[fx]; }
+          else { const r=p.new; if(r?.fixture) out[r.fixture]={ fixture:r.fixture, kickoff:r.kickoff, status:r.status, home_score:r.home_score, away_score:r.away_score }; }
+          return out;
+        });
+      })
+      .subscribe();
+    return () => { active=false; supabase.removeChannel(ch); };
   }, []);
 
   // Live sync: while a group is open, fold incoming row changes into the same React state the
@@ -276,7 +302,7 @@ export default function WorldCupFamilyDraw(){
         onDone={async(g)=>{ await store.setGroup(g.code,g); await store.markCreator(g.code); setGroup(g); setIsCreator(true); setView("ceremony"); }}/>}
       {view==="join" && <Join back={()=>setView("home")} onFound={openGroup}/>}
       {view==="ceremony" && group && <Ceremony group={group} fire={fire} onEnter={()=>openGroup(group)}/>}
-      {view==="group" && group && <GroupView group={group} preds={preds} onPick={savePick} mine={mine} toggleMine={toggleMine} isCreator={isCreator}
+      {view==="group" && group && <GroupView group={group} preds={preds} onPick={savePick} mine={mine} toggleMine={toggleMine} isCreator={isCreator} matches={matches}
         onCeremony={()=>setView("ceremony")} saveGroup={saveGroup} saveResult={saveResult} exit={()=>{setGroup(null);setView("home");}}/>}
       <footer className="foot">A just-for-fun group game · not affiliated with FIFA · no real money is handled here</footer>
     </div>
@@ -508,20 +534,23 @@ function Ceremony({ group, onEnter, fire }){
 }
 
 /* ---------------------------- GROUP VIEW -------------------------- */
-function GroupView({ group, preds, onPick, mine, toggleMine, saveGroup, saveResult, exit, isCreator, onCeremony }){
+function GroupView({ group, preds, onPick, mine, toggleMine, saveGroup, saveResult, exit, isCreator, onCeremony, matches }){
   const [tab, setTab] = useState("ranks");
   const [project, setProject] = useState(false);
   const [now, setNow] = useState(Date.now());
   const [openCard, setOpenCard] = useState(null);
   useEffect(()=>{ const t=setInterval(()=>setNow(Date.now()),1000); return ()=>clearInterval(t); },[]);
 
+  // Official feed scores win; manual per-group results remain the fallback for unfilled fixtures.
+  const results = useMemo(()=>mergeResults(group.results, matches), [group.results, matches]);
+
   const primary = mine[0];
   const myPreds = (primary && preds[primary]) ? preds[primary] : {};
   const effResults = useMemo(()=>{
-    const r = {...group.results};
+    const r = {...results};
     if(project){ for(const fx of FIXTURES){ if(!r[fx.id] && myPreds[fx.id]) r[fx.id]=predResult(myPreds[fx.id]); } }
     return r;
-  }, [group.results, preds, mine, project]);
+  }, [results, preds, mine, project]);
 
   const standings = useMemo(()=>{
     const rows = group.members.map(m=>{
@@ -539,10 +568,10 @@ function GroupView({ group, preds, onPick, mine, toggleMine, saveGroup, saveResu
   const teamHolders = useMemo(()=>{ const m={}; group.members.forEach(mem=>(group.alloc[mem.id]||[]).forEach(tid=> m[tid]=(m[tid]||0)+1)); return m; }, [group]);
 
   const { nextFx, lastFx } = useMemo(()=>{
-    const unplayed = FIXTURES.filter(fx=>!group.results[fx.id]).sort((a,b)=>a.ko-b.ko);
-    const played = FIXTURES.filter(fx=>group.results[fx.id]).sort((a,b)=>b.ko-a.ko);
+    const unplayed = FIXTURES.filter(fx=>!results[fx.id]).sort((a,b)=>koOf(a,matches)-koOf(b,matches));
+    const played = FIXTURES.filter(fx=>results[fx.id]).sort((a,b)=>koOf(b,matches)-koOf(a,matches));
     return { nextFx: unplayed[0]||null, lastFx: played[0]||null };
-  }, [group.results, now]);
+  }, [results, matches, now]);
 
   const setResult = (fxId,h,a) => saveResult(fxId, h, a);
 
@@ -561,7 +590,7 @@ function GroupView({ group, preds, onPick, mine, toggleMine, saveGroup, saveResu
         <div className="grp-id"><div className="grp-name display">{group.name}</div><div className="grp-meta">{group.members.length} members</div></div>
         <CodePill code={group.code}/>
       </div>
-      <Banner nextFx={nextFx} lastFx={lastFx} now={now} leader={anyPlayed?standings[0]:null} results={group.results}/>
+      <Banner nextFx={nextFx} lastFx={lastFx} now={now} leader={anyPlayed?standings[0]:null} results={results} matches={matches}/>
       {isCreator && <button className="replay-draw" onClick={onCeremony}><Sparkles size={14}/> Watch the draw again</button>}
       <div className="tabs">
         {tabs.map(t=>(<button key={t.k} className={"tab"+(tab===t.k?" on":"")} onClick={()=>setTab(t.k)}>{t.icon}<span>{t.label}</span></button>))}
@@ -574,8 +603,8 @@ function GroupView({ group, preds, onPick, mine, toggleMine, saveGroup, saveResu
 
       {tab==="ranks" && <RanksTab standings={standings} titles={titles} anyPlayed={anyPlayed} pool={group.pool} project={project}/>}
       {tab==="squads" && <SquadsTab standings={standings} titles={titles} anyPlayed={anyPlayed} teamHolders={teamHolders} openCard={openCard} setOpenCard={setOpenCard}/>}
-      {tab==="predict" && <PredictTab group={group} preds={preds} onPick={onPick} mine={mine} toggleMine={toggleMine} now={now}/>}
-      {tab==="cup" && <CupTab group={group} setResult={setResult} nextFx={nextFx}/>}
+      {tab==="predict" && <PredictTab group={group} preds={preds} onPick={onPick} mine={mine} toggleMine={toggleMine} now={now} results={results} matches={matches}/>}
+      {tab==="cup" && <CupTab group={group} setResult={setResult} nextFx={nextFx} results={results} matches={matches}/>}
       {tab==="pot" && <PotTab group={group} standings={standings} saveGroup={saveGroup} project={project} anyPlayed={anyPlayed}/>}
     </div>
   );
@@ -598,8 +627,8 @@ function computeTitles(standings, anyPlayed, group, effResults){
 }
 
 /* ------------------------------ BANNER ---------------------------- */
-function Banner({ nextFx, lastFx, now, leader, results }){
-  const cd = nextFx ? countdown(nextFx.ko - now) : null;
+function Banner({ nextFx, lastFx, now, leader, results, matches }){
+  const cd = nextFx ? countdown(koOf(nextFx, matches) - now) : null;
   return (
     <div className="banner">
       {leader && <div className="brag"><Crown size={15}/> <b>{leader.name}</b> leads the group · {leader.pts} pts</div>}
@@ -609,14 +638,14 @@ function Banner({ nextFx, lastFx, now, leader, results }){
             <div className="bcell-lbl">Next kick-off {cd && cd.done ? "· live now-ish" : ""}</div>
             <div className="match"><Side id={nextFx.home}/><span className="vs">v</span><Side id={nextFx.away} right/></div>
             {cd && !cd.done && <div className="cd display">{cd.d}d {cd.h}h {cd.m}m {cd.s}s</div>}
-            <div className="bcell-sub">Group {nextFx.grp} · {fmtDate(nextFx.ko)}</div>
+            <div className="bcell-sub">Group {nextFx.grp} · {fmtKickoff(koOf(nextFx, matches))}</div>
           </div>
         ) : <div className="bcell next"><div className="bcell-lbl">All group games are in 🎉</div></div>}
         {lastFx ? (
           <div className="bcell last">
             <div className="bcell-lbl">Just played</div>
             <div className="match"><Side id={lastFx.home}/><span className="score display">{results[lastFx.id]?`${results[lastFx.id].h}–${results[lastFx.id].a}`:""}</span><Side id={lastFx.away} right/></div>
-            <div className="bcell-sub">Group {lastFx.grp} · {fmtDate(lastFx.ko)}</div>
+            <div className="bcell-sub">Group {lastFx.grp} · {fmtKickoff(koOf(lastFx, matches))}</div>
           </div>
         ) : <div className="bcell last"><div className="bcell-lbl">No results entered yet</div><div className="bcell-sub">Head to the Cup tab to log scores.</div></div>}
       </div>
@@ -692,25 +721,25 @@ function Card({ s, titles, anyPlayed, teamHolders, open, onToggle }){
 }
 
 /* ---------------------------- PREDICT ----------------------------- */
-function PredictTab({ group, preds, onPick, mine, toggleMine, now }){
+function PredictTab({ group, preds, onPick, mine, toggleMine, now, results, matches }){
   const members = group.members;
   const managed = members.filter(m=>mine.includes(m.id));
   const setPick = (memId, fx, p) => {
-    if(now>=fx.ko || group.results[fx.id]) return;
+    if(now>=koOf(fx,matches) || results[fx.id]) return;
     const next = (preds[memId]||{})[fx.id]===p ? null : p; // tapping the same pick toggles it off
     onPick(memId, fx.id, next);
   };
 
-  const anyResult = FIXTURES.some(fx=>group.results[fx.id]);
-  const upcoming = FIXTURES.filter(fx=> now < fx.ko && !group.results[fx.id]);
-  const reveal = FIXTURES.filter(fx=> now>=fx.ko || group.results[fx.id]).sort((a,b)=>b.ko-a.ko);
+  const anyResult = FIXTURES.some(fx=>results[fx.id]);
+  const upcoming = FIXTURES.filter(fx=> now < koOf(fx,matches) && !results[fx.id]);
+  const reveal = FIXTURES.filter(fx=> now>=koOf(fx,matches) || results[fx.id]).sort((a,b)=>koOf(b,matches)-koOf(a,matches));
   const pickedCount = (id) => upcoming.filter(fx=>(preds[id]||{})[fx.id]).length;
 
   const board = useMemo(()=>{
     const rows = members.map(m=>{
       let correct=0, called=0;
       for(const fx of FIXTURES){
-        const res = group.results[fx.id]; if(!res) continue;
+        const res = results[fx.id]; if(!res) continue;
         const pk = preds[m.id] && preds[m.id][fx.id]; if(!pk) continue;
         called++; if(outcome(res)===pk) correct++;
       }
@@ -719,7 +748,7 @@ function PredictTab({ group, preds, onPick, mine, toggleMine, now }){
     rows.sort((a,b)=> b.correct-a.correct || b.called-a.called || a.name.localeCompare(b.name));
     let rank=0,prev=null; rows.forEach((r,i)=>{ if(prev===null||r.correct!==prev){rank=i+1;prev=r.correct;} r.rank=rank; });
     return rows;
-  }, [members, preds, group.results]);
+  }, [members, preds, results]);
 
   return (
     <div>
@@ -758,7 +787,7 @@ function PredictTab({ group, preds, onPick, mine, toggleMine, now }){
           : <div className="fixtures">
               {upcoming.map(fx=>(
                 <div className="fx" key={fx.id}>
-                  <div className="fx-top"><span className="fx-grp">Grp {fx.grp}</span><span className="fx-date">{fmtDate(fx.ko)}</span></div>
+                  <div className="fx-top"><span className="fx-grp">Grp {fx.grp}</span><span className="fx-date">{fmtKickoff(koOf(fx,matches))}</span></div>
                   <div className="fx-main">
                     <div className="fx-team"><span className="flag">{TEAMS[fx.home].f}</span><span>{TEAMS[fx.home].n}</span></div>
                     <span className="fx-mid">v</span>
@@ -786,12 +815,14 @@ function PredictTab({ group, preds, onPick, mine, toggleMine, now }){
         <div className="md-head">Results &amp; everyone's calls</div>
         <div className="fixtures">
           {reveal.map(fx=>{
-            const res = group.results[fx.id];
+            const res = results[fx.id];
             const act = res ? outcome(res) : null;
+            const off = officialFor(fx, matches);
+            const live = res && off && off.hasScore && isLiveStatus(off.status);
             return (
               <div className={"fx"+(res?" done":"")} key={fx.id}>
                 <div className="fx-top"><span className="fx-grp">Grp {fx.grp}</span>
-                  <span className="fx-date">{res? `Full time ${res.h}–${res.a}` : "Kicked off"}</span></div>
+                  <span className="fx-date">{res? `${live?"Live":"Full time"} ${res.h}–${res.a}` : "Kicked off"}</span></div>
                 <div className="fx-main">
                   <div className="fx-team"><span className="flag">{TEAMS[fx.home].f}</span><span>{TEAMS[fx.home].n}</span></div>
                   <span className="fx-mid">v</span>
@@ -820,10 +851,10 @@ function PredictTab({ group, preds, onPick, mine, toggleMine, now }){
 }
 
 /* ------------------------------- CUP ------------------------------ */
-function CupTab({ group, setResult, nextFx }){
+function CupTab({ group, setResult, nextFx, results, matches }){
   const [sel, setSel] = useState(()=> nextFx ? nextFx.grp : "A");
-  const table = groupStandings(sel, group.results);
-  const fixtures = FIXTURES.filter(fx=>fx.grp===sel).sort((a,b)=>a.ko-b.ko);
+  const table = groupStandings(sel, results);
+  const fixtures = FIXTURES.filter(fx=>fx.grp===sel).sort((a,b)=>koOf(a,matches)-koOf(b,matches));
   return (
     <div>
       <div className="section-head"><span className="display sh-title">The tournament</span><span className="sh-sub">real groups & results</span></div>
@@ -845,20 +876,25 @@ function CupTab({ group, setResult, nextFx }){
       <div className="md-head">Group {sel} fixtures</div>
       <div className="fixtures">
         {fixtures.map(fx=>{
-          const res = group.results[fx.id];
+          const res = results[fx.id];
+          const off = officialFor(fx, matches);
+          const showOfficial = !!(off && off.hasScore);
           return (
             <div className={"fx"+(res?" done":"")} key={fx.id}>
-              <div className="fx-top"><span className="fx-grp">MD{fx.round+1}</span><span className="fx-date">{fmtDate(fx.ko)}</span></div>
+              <div className="fx-top"><span className="fx-grp">MD{fx.round+1}</span>
+                <span className="fx-date">{showOfficial ? (isLiveStatus(off.status)?"Live":"Full time") : fmtKickoff(koOf(fx,matches))}</span></div>
               <div className="fx-main">
                 <div className="fx-team"><span className="flag">{TEAMS[fx.home].f}</span><span>{TEAMS[fx.home].n}</span></div>
-                <ScoreEntry fx={fx} res={res} onSet={setResult}/>
+                {showOfficial
+                  ? <span className="score display">{off.h}–{off.a}</span>
+                  : <ScoreEntry fx={fx} res={res} onSet={setResult}/>}
                 <div className="fx-team r"><span>{TEAMS[fx.away].n}</span><span className="flag">{TEAMS[fx.away].f}</span></div>
               </div>
             </div>
           );
         })}
       </div>
-      <p className="hint"><Info size={13}/> Anyone in the group can enter a final score here. Results flow straight into both the real group table above and the group standings.</p>
+      <p className="hint"><Info size={13}/> Official scores from the live feed fill in automatically. Until then, anyone in the group can enter a score here, and results flow straight into both the real group table above and the group standings.</p>
     </div>
   );
 }
@@ -947,6 +983,20 @@ function computePayouts(standings, pool){
 /* ----------------------------- TIME UTILS ------------------------- */
 function countdown(ms){ if(ms<=0) return {done:true}; const s=Math.floor(ms/1000); return {done:false,d:Math.floor(s/86400),h:Math.floor(s%86400/3600),m:Math.floor(s%3600/60),s:s%60}; }
 function fmtDate(ms){ try{ return new Date(ms).toLocaleString(undefined,{day:"numeric",month:"short",hour:"numeric",minute:"2-digit"}); }catch{ return new Date(ms).toDateString(); } }
+// Kick-off in the viewer's OWN timezone (device default, no prompt), e.g. "Thu 11 Jun, 5:00 am AEST".
+// The short timezone label keeps it unambiguous which zone the time is shown in.
+function fmtKickoff(ms){ try{ return new Date(ms).toLocaleString(undefined,{weekday:"short",day:"numeric",month:"short",hour:"numeric",minute:"2-digit",timeZoneName:"short"}); }catch{ return fmtDate(ms); } }
+
+/* --------------------------- LIVE FEED OVERLAY -------------------- */
+// The shared `matches` feed (read-only, anon) overlays the app's hardcoded fixtures.
+// Real kick-off for a fixture: the feed's official time when present, else the hardcoded fallback.
+function koOf(fx, matches){ const m=matches&&matches[fx.id]; if(m&&m.kickoff){ const t=Date.parse(m.kickoff); if(!Number.isNaN(t)) return t; } return fx.ko; }
+const isLiveStatus = (s) => /progress|live|playing/i.test(s||"");
+// Official score (with status) for a fixture from the feed, or null if the feed has not filled it.
+function officialFor(fx, matches){ const m=matches&&matches[fx.id]; if(!m) return null; const hasScore = m.home_score!=null && m.away_score!=null; return { status:m.status, hasScore, h:hasScore?m.home_score:null, a:hasScore?m.away_score:null }; }
+// Results map with official feed scores taking precedence over the manual per-group results,
+// manual entry remaining the fallback for any fixture the feed has not filled.
+function mergeResults(manual, matches){ const out={...(manual||{})}; for(const fx of FIXTURES){ const m=matches&&matches[fx.id]; if(m&&m.home_score!=null&&m.away_score!=null) out[fx.id]={h:m.home_score,a:m.away_score}; } return out; }
 
 /* ------------------------------ CONFETTI -------------------------- */
 function Confetti({ done }){
