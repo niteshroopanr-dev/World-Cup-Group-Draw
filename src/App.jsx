@@ -207,7 +207,8 @@ export default function WorldCupFamilyDraw(){
   const [lastCode, setLastCode] = useState(null);
   const [boom, setBoom] = useState(0);
   const [isCreator, setIsCreator] = useState(false);
-  const [matches, setMatches] = useState({});
+  const [matches, setMatches] = useState({});        // group games, keyed by app fixture id
+  const [knockouts, setKnockouts] = useState({});    // knockout games (fixture null), keyed by match id
 
   useEffect(() => {
     const link = document.createElement("link");
@@ -218,24 +219,35 @@ export default function WorldCupFamilyDraw(){
 
   // Live World Cup feed: read the shared, tournament-wide `matches` table (read-only, anon) and
   // keep it in sync via Realtime, so real kick-off times, statuses and scores appear live across
-  // devices. Keyed by the app fixture id; only group-stage rows (non-null fixture) matter here.
+  // devices. Group games (non-null fixture) are kept keyed by app fixture id; knockout games
+  // (null fixture) are kept separately keyed by match id. The two stay clearly apart in state.
   useEffect(() => {
     if(!supabase) return;
     let active = true;
+    const KO_COLS = "id,match_number,stage,kickoff,status,home_team,away_team,home_score,away_score,home_odds,draw_odds,away_odds";
     (async () => {
       const { data } = await supabase.from("matches")
         .select("fixture,kickoff,status,home_score,away_score,home_odds,draw_odds,away_odds").not("fixture","is",null);
       if(!active) return;
       const out = {}; (data||[]).forEach(r=>{ if(r.fixture) out[r.fixture]=r; }); setMatches(out);
     })();
+    (async () => {
+      const { data } = await supabase.from("matches").select(KO_COLS).is("fixture", null);
+      if(!active) return;
+      const out = {}; (data||[]).forEach(r=>{ if(r.id!=null) out[r.id]=r; }); setKnockouts(out);
+    })();
+    const koRow = (r) => ({ id:r.id, match_number:r.match_number, stage:r.stage, kickoff:r.kickoff, status:r.status, home_team:r.home_team, away_team:r.away_team, home_score:r.home_score, away_score:r.away_score, home_odds:r.home_odds, draw_odds:r.draw_odds, away_odds:r.away_odds });
     const ch = supabase.channel("wcfd:matches")
       .on("postgres_changes", { event:"*", schema:"public", table:"matches" }, (p) => {
-        setMatches(prev => {
-          const out = {...prev};
-          if(p.eventType==="DELETE"){ const fx=p.old?.fixture; if(fx) delete out[fx]; }
-          else { const r=p.new; if(r?.fixture) out[r.fixture]={ fixture:r.fixture, kickoff:r.kickoff, status:r.status, home_score:r.home_score, away_score:r.away_score, home_odds:r.home_odds, draw_odds:r.draw_odds, away_odds:r.away_odds }; }
-          return out;
-        });
+        if(p.eventType==="DELETE"){
+          const id=p.old?.id, fx=p.old?.fixture;
+          if(fx) setMatches(prev=>{ const o={...prev}; delete o[fx]; return o; });
+          if(id!=null) setKnockouts(prev=>{ const o={...prev}; delete o[id]; return o; });
+          return;
+        }
+        const r=p.new;
+        if(r?.fixture) setMatches(prev=>({ ...prev, [r.fixture]:{ fixture:r.fixture, kickoff:r.kickoff, status:r.status, home_score:r.home_score, away_score:r.away_score, home_odds:r.home_odds, draw_odds:r.draw_odds, away_odds:r.away_odds } }));
+        else if(r?.id!=null) setKnockouts(prev=>({ ...prev, [r.id]:koRow(r) }));
       })
       .subscribe();
     return () => { active=false; supabase.removeChannel(ch); };
@@ -302,7 +314,7 @@ export default function WorldCupFamilyDraw(){
         onDone={async(g)=>{ await store.setGroup(g.code,g); await store.markCreator(g.code); setGroup(g); setIsCreator(true); setView("ceremony"); }}/>}
       {view==="join" && <Join back={()=>setView("home")} onFound={openGroup}/>}
       {view==="ceremony" && group && <Ceremony group={group} fire={fire} onEnter={()=>openGroup(group)}/>}
-      {view==="group" && group && <GroupView group={group} preds={preds} onPick={savePick} mine={mine} toggleMine={toggleMine} isCreator={isCreator} matches={matches}
+      {view==="group" && group && <GroupView group={group} preds={preds} onPick={savePick} mine={mine} toggleMine={toggleMine} isCreator={isCreator} matches={matches} knockouts={knockouts}
         onCeremony={()=>setView("ceremony")} saveGroup={saveGroup} saveResult={saveResult} exit={()=>{setGroup(null);setView("home");}}/>}
       <footer className="foot">A just-for-fun group game · not affiliated with FIFA · no real money is handled here</footer>
     </div>
@@ -555,7 +567,7 @@ function Ceremony({ group, onEnter, fire }){
 }
 
 /* ---------------------------- GROUP VIEW -------------------------- */
-function GroupView({ group, preds, onPick, mine, toggleMine, saveGroup, saveResult, exit, isCreator, onCeremony, matches }){
+function GroupView({ group, preds, onPick, mine, toggleMine, saveGroup, saveResult, exit, isCreator, onCeremony, matches, knockouts }){
   const [tab, setTab] = useState("ranks");
   const [project, setProject] = useState(false);
   const [now, setNow] = useState(Date.now());
@@ -625,7 +637,7 @@ function GroupView({ group, preds, onPick, mine, toggleMine, saveGroup, saveResu
       {tab==="ranks" && <RanksTab standings={standings} titles={titles} anyPlayed={anyPlayed} pool={group.pool} project={project}/>}
       {tab==="squads" && <SquadsTab standings={standings} titles={titles} anyPlayed={anyPlayed} teamHolders={teamHolders} openCard={openCard} setOpenCard={setOpenCard}/>}
       {tab==="predict" && <PredictTab group={group} preds={preds} onPick={onPick} mine={mine} toggleMine={toggleMine} now={now} results={results} matches={matches}/>}
-      {tab==="cup" && <CupTab group={group} setResult={setResult} nextFx={nextFx} results={results} matches={matches}/>}
+      {tab==="cup" && <CupTab group={group} setResult={setResult} nextFx={nextFx} results={results} matches={matches} knockouts={knockouts}/>}
       {tab==="pot" && <PotTab group={group} standings={standings} saveGroup={saveGroup} project={project} anyPlayed={anyPlayed}/>}
     </div>
   );
@@ -894,15 +906,20 @@ function PredictTab({ group, preds, onPick, mine, toggleMine, now, results, matc
 }
 
 /* ------------------------------- CUP ------------------------------ */
-function CupTab({ group, setResult, nextFx, results, matches }){
+function CupTab({ group, setResult, nextFx, results, matches, knockouts }){
   const [sel, setSel] = useState(()=> nextFx ? nextFx.grp : "A");
-  const table = groupStandings(sel, results);
-  const fixtures = FIXTURES.filter(fx=>fx.grp===sel).sort((a,b)=>koOf(a,matches)-koOf(b,matches));
+  const isKO = sel==="KO";
+  const table = isKO ? [] : groupStandings(sel, results);
+  const fixtures = isKO ? [] : FIXTURES.filter(fx=>fx.grp===sel).sort((a,b)=>koOf(a,matches)-koOf(b,matches));
   return (
     <div>
-      <div className="section-head"><span className="display sh-title">The tournament</span><span className="sh-sub">real groups & results</span></div>
-      <div className="grp-sel">{LETTERS.map(L=>(<button key={L} className={"grp-chip"+(sel===L?" on":"")} onClick={()=>setSel(L)}>{L}</button>))}</div>
+      <div className="section-head"><span className="display sh-title">The tournament</span><span className="sh-sub">{isKO?"knockout bracket":"real groups & results"}</span></div>
+      <div className="grp-sel">
+        {LETTERS.map(L=>(<button key={L} className={"grp-chip"+(sel===L?" on":"")} onClick={()=>setSel(L)}>{L}</button>))}
+        <button className={"grp-chip ko"+(isKO?" on":"")} onClick={()=>setSel("KO")}>Knockouts</button>
+      </div>
 
+      {isKO ? <KnockoutList knockouts={knockouts}/> : <>
       <div className="std-card">
         <div className="std-title">Group {sel}</div>
         <div className="std-row std-h"><span className="std-pos"></span><span className="std-team">Team</span><span>P</span><span>W</span><span>D</span><span>L</span><span>GD</span><span className="std-pts">Pts</span></div>
@@ -938,6 +955,82 @@ function CupTab({ group, setResult, nextFx, results, matches }){
         })}
       </div>
       <p className="hint"><Info size={13}/> Official scores from the live feed fill in automatically. Until then, anyone in the group can enter a score here, and results flow straight into both the real group table above and the group standings.</p>
+      </>}
+    </div>
+  );
+}
+
+/* ---------------------------- KNOCKOUTS --------------------------- */
+// Read-only bracket view (no manual scores, no predictions). Reads the knockout rows from the
+// shared feed, decodes undecided slot tokens into readable placeholders, and shows local kick-off
+// times, live/final scores and chance percentages with the same treatment as the group games.
+const KO_STAGE_ORDER = ["Round of 32","Round of 16","Quarterfinal","Semifinal","Match for 3rd place","Final"];
+const KO_STAGE_LABEL = { "Round of 32":"Round of 32", "Round of 16":"Round of 16", "Quarterfinal":"Quarter-finals", "Semifinal":"Semi-finals", "Match for 3rd place":"Play-off for third", "Final":"Final" };
+const KO_STAGE_TAG = { "Round of 32":"R32", "Round of 16":"R16", "Quarterfinal":"QF", "Semifinal":"SF", "Match for 3rd place":"3rd", "Final":"Final" };
+// Token -> readable placeholder for a slot whose team is not decided yet. Real team ids fall through
+// to TEAMS elsewhere; unknown formats show the raw token rather than guess.
+function koSlotLabel(tok){
+  if(!tok) return "To be decided";
+  let m;
+  if((m=/^W(\d+)$/.exec(tok))) return `Winner of Match ${m[1]}`;
+  if((m=/^L(\d+)$/.exec(tok))) return `Loser of Match ${m[1]}`;
+  if((m=/^1([A-L])$/.exec(tok))) return `Winners of Group ${m[1]}`;
+  if((m=/^2([A-L])$/.exec(tok))) return `Runners-up of Group ${m[1]}`;
+  if((m=/^3([A-L])/.exec(tok))) return `Third place Group ${m[1]}`;
+  return tok;
+}
+function KoTeam({ tok, right }){
+  const t = TEAMS[tok];
+  if(!t) return <div className={"fx-team"+(right?" r":"")}><span className="ko-tbd">{koSlotLabel(tok)}</span></div>;
+  return right
+    ? <div className="fx-team r"><span>{t.n}</span><span className="flag">{t.f}</span></div>
+    : <div className="fx-team"><span className="flag">{t.f}</span><span>{t.n}</span></div>;
+}
+function KoMatch({ row }){
+  const ko = row.kickoff ? Date.parse(row.kickoff) : NaN;
+  const completed = (row.status||"")==="completed";
+  const hasScore = row.home_score!=null && row.away_score!=null;
+  const live = hasScore && isLiveStatus(row.status);
+  const showChances = !completed && row.home_odds!=null && row.draw_odds!=null && row.away_odds!=null;
+  return (
+    <div className={"fx"+(hasScore?" done":"")}>
+      <div className="fx-top"><span className="fx-grp">{KO_STAGE_TAG[row.stage]||""}</span>
+        <span className="fx-date">{hasScore ? `${live?"Live":"Full time"} ${row.home_score}–${row.away_score}` : (Number.isNaN(ko) ? "To be scheduled" : fmtKickoff(ko))}</span></div>
+      <div className="fx-main">
+        <KoTeam tok={row.home_team}/>
+        <span className="fx-mid">v</span>
+        <KoTeam tok={row.away_team} right/>
+      </div>
+      {showChances && (
+        <div className="chances">
+          <span className="chc">{TEAMS[row.home_team]?.f && <span className="flag">{TEAMS[row.home_team].f}</span>} <b>{row.home_odds}%</b></span>
+          <span className="chc-sep">/</span>
+          <span className="chc">Draw <b>{row.draw_odds}%</b></span>
+          <span className="chc-sep">/</span>
+          <span className="chc">{TEAMS[row.away_team]?.f && <span className="flag">{TEAMS[row.away_team].f}</span>} <b>{row.away_odds}%</b></span>
+        </div>
+      )}
+    </div>
+  );
+}
+function KnockoutList({ knockouts }){
+  const rows = Object.values(knockouts||{});
+  if(!rows.length) return <p className="empty-note"><Sparkles size={15}/> The knockout bracket appears here once the fixtures are published.</p>;
+  const byStage = {}; rows.forEach(r=>{ (byStage[r.stage]=byStage[r.stage]||[]).push(r); });
+  const order = KO_STAGE_ORDER.filter(s=>byStage[s]);
+  Object.keys(byStage).forEach(s=>{ if(!order.includes(s)) order.push(s); });
+  return (
+    <div>
+      {order.map(stage=>{
+        const list = byStage[stage].slice().sort((a,b)=> (Date.parse(a.kickoff)||0)-(Date.parse(b.kickoff)||0) || (a.match_number||0)-(b.match_number||0));
+        return (
+          <div key={stage}>
+            <div className="md-head">{KO_STAGE_LABEL[stage]||stage}</div>
+            <div className="fixtures">{list.map(r=> <KoMatch key={r.id} row={r}/>)}</div>
+          </div>
+        );
+      })}
+      <p className="hint"><Info size={13}/> Knockout kickoffs, teams and scores update automatically from the live feed. This view is read only.</p>
     </div>
   );
 }
@@ -1284,6 +1377,8 @@ const CSS = `
 .grp-sel{display:flex;gap:6px;overflow-x:auto;padding-bottom:6px;margin-bottom:6px;-webkit-overflow-scrolling:touch}
 .grp-chip{flex:none;width:38px;height:38px;border-radius:11px;background:rgba(255,255,255,.06);border:1px solid var(--line);color:rgba(251,247,236,.7);font-family:'Anton';font-size:16px;cursor:pointer}
 .grp-chip.on{background:linear-gradient(180deg,#ffe066,#f4b400);color:#3a2a00;border-color:transparent}
+.grp-chip.ko{width:auto;padding:0 13px;font-family:'Outfit';font-size:12px;font-weight:700;letter-spacing:.02em}
+.ko-tbd{font-weight:600;font-size:12.5px;color:rgba(251,247,236,.55)}
 .std-card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:12px 13px;margin-top:4px}
 .std-title{font-family:'Anton',sans-serif;text-transform:uppercase;font-size:17px;color:var(--gold);margin-bottom:8px}
 .std-row{display:grid;grid-template-columns:20px 1fr 18px 18px 18px 18px 30px 30px;align-items:center;gap:4px;padding:7px 0;font-size:12.5px;font-variant-numeric:tabular-nums;border-top:1px solid rgba(255,255,255,.06)}
