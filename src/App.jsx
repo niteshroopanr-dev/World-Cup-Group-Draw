@@ -454,7 +454,7 @@ function Ceremony({ group, onEnter, fire }){
     <div className="wrap cer">
       <p className="kicker center">The big draw</p>
       <h1 className="display cer-h center">Time for<br/><span className="gold">the draw</span></h1>
-      <p className="lede center">Gather everyone round one screen, choose a style, then tap through to reveal who gets whom.</p>
+      <p className="lede center">Gather everyone around one screen, choose a style, then tap through to reveal who gets whom.</p>
       <div className="mode-grid">
         <button className="mode-card" onClick={()=>start("team")}>
           <Sparkles size={26}/>
