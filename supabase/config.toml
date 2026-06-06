@@ -1,0 +1,4 @@
+project_id = "ilybvcmueutdkygconib"
+
+[functions.sync-matches]
+verify_jwt = true
