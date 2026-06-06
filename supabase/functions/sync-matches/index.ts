@@ -73,10 +73,10 @@ const resolveId = (abbr?: string | null, name?: string | null): string | null =>
   return null;
 };
 
-async function bdlFetch(path: string, key: string): Promise<any[]> {
+async function bdlFetch(path: string, key: string, maxPages = 20): Promise<any[]> {
   const out: any[] = [];
   let cursor: string | undefined;
-  for (let page = 0; page < 20; page++) {
+  for (let page = 0; page < maxPages; page++) {
     const url = new URL(BDL_BASE + path);
     url.searchParams.set("per_page", "100");
     if (cursor) url.searchParams.set("cursor", cursor);
@@ -95,6 +95,42 @@ async function bdlFetch(path: string, key: string): Promise<any[]> {
 // Group-stage games carry a group (A..L); knockout games do not. (BALLDONTLIE's match_number is a
 // per-round counter with duplicates, so it is NOT a reliable 1..104 discriminator.)
 const isGroupStage = (m: any) => !!m.group?.name;
+
+/* ---- Odds -> win/draw/loss CHANCE percentages (0..100). ---- */
+// One consistent vendor per match so the numbers don't jump between sources; prefer a major book,
+// else fall back to the first one seen for that match.
+const VENDOR_PREF = ["pinnacle", "fanduel", "draftkings", "bet365", "betmgm", "caesars", "william hill"];
+const vendorRank = (v?: string | null) => { const i = VENDOR_PREF.indexOf((v || "").toLowerCase()); return i === -1 ? VENDOR_PREF.length : i; };
+// American moneyline price -> implied probability (0..1).
+const americanToProb = (a: number) => (a > 0 ? 100 / (a + 100) : Math.abs(a) / (Math.abs(a) + 100));
+
+// Fetch /odds and return, per match id, the margin-stripped, normalised, whole-number percentages
+// { home, draw, away } summing to ~100. Throws on a feed error so the caller can leave odds untouched.
+async function buildOddsByMatch(key: string): Promise<Record<number, { home: number; draw: number; away: number }>> {
+  const odds = await bdlFetch("/odds", key, 50);
+  // Keep one line per match: the highest-preference vendor that has all three moneylines.
+  const best: Record<number, any> = {};
+  for (const o of odds) {
+    const mid = o.match_id;
+    if (mid == null) continue;
+    if (o.moneyline_home_odds == null || o.moneyline_draw_odds == null || o.moneyline_away_odds == null) continue;
+    if (!best[mid] || vendorRank(o.vendor) < vendorRank(best[mid].vendor)) best[mid] = o;
+  }
+  const out: Record<number, { home: number; draw: number; away: number }> = {};
+  for (const [mid, o] of Object.entries(best)) {
+    const ph = americanToProb(o.moneyline_home_odds);
+    const pd = americanToProb(o.moneyline_draw_odds);
+    const pa = americanToProb(o.moneyline_away_odds);
+    const sum = ph + pd + pa;
+    if (!(sum > 0)) continue;
+    out[Number(mid)] = {
+      home: Math.round((ph / sum) * 100),
+      draw: Math.round((pd / sum) * 100),
+      away: Math.round((pa / sum) * 100),
+    };
+  }
+  return out;
+}
 
 Deno.serve(async () => {
   try {
@@ -122,6 +158,15 @@ Deno.serve(async () => {
 
     // 2. Matches — upsert all; map group-stage games to app fixtures with correct orientation.
     const matches = await bdlFetch("/matches", key);
+
+    // 2b. Odds -> chance percentages. Additive and resilient: if the odds feed errors we leave the
+    // odds columns untouched this run (rather than wiping good numbers) and the scores/kickoffs in
+    // step 2 still upsert normally. Only when the fetch succeeds do we write the three columns.
+    let oddsByMatch: Record<number, { home: number; draw: number; away: number }> = {};
+    let oddsOk = false; let oddsError: string | null = null;
+    try { oddsByMatch = await buildOddsByMatch(key); oddsOk = true; }
+    catch (e) { oddsError = String((e as Error)?.message ?? e); }
+
     const rows: any[] = [];
     const matchedFixtures = new Set<string>();
     const unmatched: any[] = [];
@@ -135,13 +180,14 @@ Deno.serve(async () => {
       let awayTeam = awayId ?? m.away_team?.abbreviation ?? null;
       let hs = m.home_score ?? null;
       let as = m.away_score ?? null;
+      let flipped = false; // true when the app fixture's home/away is the reverse of BALLDONTLIE's
 
       if (group && homeId && awayId) {
         const fx = FIX_BY_PAIR[pairKey(homeId, awayId)];
         if (fx) {
           fixture = fx.id; grp = fx.grp; matchedFixtures.add(fx.id);
           homeTeam = fx.home; awayTeam = fx.away;
-          if (homeId !== fx.home) { const t = hs; hs = as; as = t; } // orient scores to the app's home/away
+          if (homeId !== fx.home) { const t = hs; hs = as; as = t; flipped = true; } // orient scores to the app's home/away
         } else {
           unmatched.push({ match_number: m.match_number, group: m.group?.name, home: m.home_team?.abbreviation, away: m.away_team?.abbreviation, homeId, awayId, reason: "pair-not-in-app-groups" });
         }
@@ -149,7 +195,7 @@ Deno.serve(async () => {
         unmatched.push({ match_number: m.match_number, group: m.group?.name, home: m.home_team?.abbreviation, away: m.away_team?.abbreviation, homeId, awayId, reason: "team-unmapped" });
       }
 
-      rows.push({
+      const row: any = {
         id: m.id,
         match_number: m.match_number ?? null,
         fixture,
@@ -162,7 +208,19 @@ Deno.serve(async () => {
         home_score: hs,
         away_score: as,
         updated_at: new Date().toISOString(),
-      });
+      };
+      // Chance percentages: only when the odds fetch succeeded (keeps every row's columns uniform,
+      // which PostgREST's bulk upsert requires). Null for completed games so numbers never linger
+      // after full time, and null when no line is available so stale percentages clear.
+      if (oddsOk) {
+        const raw = m.status !== "completed" ? oddsByMatch[m.id] : undefined;
+        // Orient the home/away chances to the app's home/away, same as the scores above.
+        const pct = raw && flipped ? { home: raw.away, draw: raw.draw, away: raw.home } : raw;
+        row.home_odds = pct ? pct.home : null;
+        row.draw_odds = pct ? pct.draw : null;
+        row.away_odds = pct ? pct.away : null;
+      }
+      rows.push(row);
     }
 
     if (rows.length) {
@@ -178,10 +236,16 @@ Deno.serve(async () => {
       kickoff: r.kickoff, status: r.status,
       score: r.home_score != null ? `${r.home_score}-${r.away_score}` : null,
     }));
+    const oddsSample = rows.filter((r) => r.fixture && r.home_odds != null).slice(0, 6).map((r) => ({
+      fixture: r.fixture, teams: `${r.home_team} v ${r.away_team}`, status: r.status,
+      chances: `${r.home_odds}% / ${r.draw_odds}% / ${r.away_odds}%`,
+    }));
     return json({
       ok: true,
       totals: { teams: teams.length, matches: matches.length, upserted: rows.length },
       groupFixtures: { target: 72, matched: matchedFixtures.size, missing: 72 - matchedFixtures.size },
+      odds: { ok: oddsOk, error: oddsError, matchesWithChances: rows.filter((r) => r.home_odds != null).length },
+      oddsSample,
       missingFixtures,
       unmatchedBdlGroupMatches: unmatched,
       unmappedTeams,

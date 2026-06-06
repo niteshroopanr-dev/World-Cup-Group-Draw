@@ -224,7 +224,7 @@ export default function WorldCupFamilyDraw(){
     let active = true;
     (async () => {
       const { data } = await supabase.from("matches")
-        .select("fixture,kickoff,status,home_score,away_score").not("fixture","is",null);
+        .select("fixture,kickoff,status,home_score,away_score,home_odds,draw_odds,away_odds").not("fixture","is",null);
       if(!active) return;
       const out = {}; (data||[]).forEach(r=>{ if(r.fixture) out[r.fixture]=r; }); setMatches(out);
     })();
@@ -233,7 +233,7 @@ export default function WorldCupFamilyDraw(){
         setMatches(prev => {
           const out = {...prev};
           if(p.eventType==="DELETE"){ const fx=p.old?.fixture; if(fx) delete out[fx]; }
-          else { const r=p.new; if(r?.fixture) out[r.fixture]={ fixture:r.fixture, kickoff:r.kickoff, status:r.status, home_score:r.home_score, away_score:r.away_score }; }
+          else { const r=p.new; if(r?.fixture) out[r.fixture]={ fixture:r.fixture, kickoff:r.kickoff, status:r.status, home_score:r.home_score, away_score:r.away_score, home_odds:r.home_odds, draw_odds:r.draw_odds, away_odds:r.away_odds }; }
           return out;
         });
       })
@@ -721,6 +721,21 @@ function Card({ s, titles, anyPlayed, teamHolders, open, onToggle }){
 }
 
 /* ---------------------------- PREDICT ----------------------------- */
+// Quiet, information-only chance line: "🇲🇽 68% / Draw 21% / 🇿🇦 12%". Renders nothing when the
+// feed has no figures or the game is over.
+function Chances({ fx, matches }){
+  const c = chancesFor(fx, matches);
+  if(!c) return null;
+  return (
+    <div className="chances">
+      <span className="chc"><span className="flag">{TEAMS[fx.home].f}</span> <b>{c.home}%</b></span>
+      <span className="chc-sep">/</span>
+      <span className="chc">Draw <b>{c.draw}%</b></span>
+      <span className="chc-sep">/</span>
+      <span className="chc"><span className="flag">{TEAMS[fx.away].f}</span> <b>{c.away}%</b></span>
+    </div>
+  );
+}
 function PredictTab({ group, preds, onPick, mine, toggleMine, now, results, matches }){
   const members = group.members;
   const managed = members.filter(m=>mine.includes(m.id));
@@ -734,6 +749,8 @@ function PredictTab({ group, preds, onPick, mine, toggleMine, now, results, matc
   const upcoming = FIXTURES.filter(fx=> now < koOf(fx,matches) && !results[fx.id]);
   const reveal = FIXTURES.filter(fx=> now>=koOf(fx,matches) || results[fx.id]).sort((a,b)=>koOf(b,matches)-koOf(a,matches));
   const pickedCount = (id) => upcoming.filter(fx=>(preds[id]||{})[fx.id]).length;
+  const upcomingHasChances = upcoming.some(fx=>chancesFor(fx,matches));
+  const revealHasChances = reveal.some(fx=>chancesFor(fx,matches));
 
   const board = useMemo(()=>{
     const rows = members.map(m=>{
@@ -784,7 +801,9 @@ function PredictTab({ group, preds, onPick, mine, toggleMine, now, results, matc
             {managed.map(m=>(<span className="prog-item" key={m.id}><b>{m.name}</b> {pickedCount(m.id)}/{upcoming.length}</span>))}
           </div>
           {upcoming.length===0 ? <p className="hint"><Info size={13}/> No games left to predict right now.</p>
-          : <div className="fixtures">
+          : <>
+            {upcomingHasChances && <p className="chance-note">Estimated chances from bookmakers' odds, for interest only.</p>}
+            <div className="fixtures">
               {upcoming.map(fx=>(
                 <div className="fx" key={fx.id}>
                   <div className="fx-top"><span className="fx-grp">Grp {fx.grp}</span><span className="fx-date">{fmtKickoff(koOf(fx,matches))}</span></div>
@@ -793,6 +812,7 @@ function PredictTab({ group, preds, onPick, mine, toggleMine, now, results, matc
                     <span className="fx-mid">v</span>
                     <div className="fx-team r"><span>{TEAMS[fx.away].n}</span><span className="flag">{TEAMS[fx.away].f}</span></div>
                   </div>
+                  <Chances fx={fx} matches={matches}/>
                   {managed.map(m=>{
                     const pick = (preds[m.id]||{})[fx.id];
                     return (
@@ -808,11 +828,12 @@ function PredictTab({ group, preds, onPick, mine, toggleMine, now, results, matc
                   })}
                 </div>
               ))}
-            </div>}
+            </div></>}
         </>}
 
       {reveal.length>0 && <>
         <div className="md-head">Results &amp; everyone's calls</div>
+        {revealHasChances && <p className="chance-note">Estimated chances from bookmakers' odds, for interest only.</p>}
         <div className="fixtures">
           {reveal.map(fx=>{
             const res = results[fx.id];
@@ -828,6 +849,7 @@ function PredictTab({ group, preds, onPick, mine, toggleMine, now, results, matc
                   <span className="fx-mid">v</span>
                   <div className="fx-team r"><span>{TEAMS[fx.away].n}</span><span className="flag">{TEAMS[fx.away].f}</span></div>
                 </div>
+                <Chances fx={fx} matches={matches}/>
                 <div className="calls">
                   {members.map(m=>{
                     const pk = preds[m.id] && preds[m.id][fx.id];
@@ -997,6 +1019,9 @@ function officialFor(fx, matches){ const m=matches&&matches[fx.id]; if(!m) retur
 // Results map with official feed scores taking precedence over the manual per-group results,
 // manual entry remaining the fallback for any fixture the feed has not filled.
 function mergeResults(manual, matches){ const out={...(manual||{})}; for(const fx of FIXTURES){ const m=matches&&matches[fx.id]; if(m&&m.home_score!=null&&m.away_score!=null) out[fx.id]={h:m.home_score,a:m.away_score}; } return out; }
+// Win/draw/loss CHANCE percentages (whole numbers) for a fixture, from the feed's odds-derived
+// figures. Shown only before/during a game (never once completed) and only when all three exist.
+function chancesFor(fx, matches){ const m=matches&&matches[fx.id]; if(!m || (m.status||"")==="completed") return null; if(m.home_odds==null||m.draw_odds==null||m.away_odds==null) return null; return { home:m.home_odds, draw:m.draw_odds, away:m.away_odds }; }
 
 /* ------------------------------ CONFETTI -------------------------- */
 function Confetti({ done }){
@@ -1195,6 +1220,12 @@ const CSS = `
 .prog-item{font-size:11.5px;color:rgba(251,247,236,.62);background:rgba(255,255,255,.05);border:1px solid var(--line);border-radius:8px;padding:4px 9px}
 .prog-item b{color:var(--cream);font-weight:700}
 .call-mine{font-size:8px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:#06160e;background:var(--gold);padding:1px 5px;border-radius:4px;margin-left:6px;vertical-align:middle}
+.chances{display:flex;align-items:center;justify-content:center;gap:9px;flex-wrap:wrap;margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,.06);font-size:12px;color:rgba(251,247,236,.62);font-variant-numeric:tabular-nums}
+.chc{display:inline-flex;align-items:center;gap:5px}
+.chc .flag{font-size:15px}
+.chc b{color:var(--cream);font-weight:700}
+.chc-sep{color:rgba(251,247,236,.3)}
+.chance-note{font-size:11px;color:rgba(251,247,236,.45);margin:-2px 0 9px;line-height:1.4}
 .pred-btn{background:rgba(255,255,255,.06);border:1px solid var(--line);color:rgba(251,247,236,.8);font-family:'Outfit';font-weight:600;font-size:13px;padding:6px 12px;border-radius:9px;cursor:pointer}
 .pred-btn.on{background:rgba(57,169,219,.22);border-color:rgba(57,169,219,.55);color:#bfe8fa}
 .locked-row{color:rgba(251,247,236,.55)}
