@@ -78,23 +78,27 @@ const genCode = (len=10) => Array.from({length:len}, () => CODE_CHARS[Math.floor
 const shuffle = (arr) => { const a=[...arr]; for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];} return a; };
 
 // Allocation: every one of the 48 teams is always shared out across the group.
-//  • 12 members  → exactly 4 each, one per tier, no duplicates.
-//  • <12 members → all 48 dealt evenly, so members hold more than 4. No duplicates.
-//  • >12 members → 4 each (one per tier); all 48 covered once, the rest are duplicates.
+//  • 16 members  → exactly 3 each, one per ranking third, no duplicates.
+//  • <16 members → all 48 dealt evenly, so members hold more than 3. No duplicates.
+//  • >16 members → 3 each (one per ranking third); all 48 covered once, the rest are duplicates.
 const buildAllocations = (members) => {
   const N = members.length;
   const tiers = [[],[],[],[]];
   Object.keys(TEAMS).forEach(id => tiers[tierOf(id)-1].push(id));
   const alloc = {}; members.forEach(m => alloc[m.id]=[]);
   if (N === 0) return alloc;
-  if (N <= 12) {
+  if (N <= 16) {
     // Continuous pointer across the four shuffled tiers → all 48 dealt, even hands, tier-spread.
+    // No duplicates up to 16; sixteen is the sweet spot of exactly three each.
     let ptr = 0;
     tiers.forEach(t => shuffle(t).forEach(team => { alloc[members[ptr % N].id].push(team); ptr++; }));
   } else {
-    // One team per tier per member; cover all 12 in a tier, then duplicate evenly.
-    tiers.forEach(t => {
-      let deck = []; while (deck.length < N) deck = deck.concat(shuffle(t));
+    // > 16 members: three teams each, one from each third of the rankings (a contender, a mid and
+    // a long shot). Cover all 16 in a third, then duplicate evenly, spreading shared teams fairly.
+    const ranked = Object.keys(TEAMS).sort((a,b)=>TEAMS[a].r-TEAMS[b].r);
+    const bands = [ranked.slice(0,16), ranked.slice(16,32), ranked.slice(32,48)];
+    bands.forEach(band => {
+      let deck = []; while (deck.length < N) deck = deck.concat(shuffle(band));
       deck = deck.slice(0, N);
       shuffle(members.map((_,i)=>i)).forEach((mi, idx) => alloc[members[mi].id].push(deck[idx]));
     });
@@ -336,7 +340,7 @@ function Home({ onCreate, onJoin, onResume, lastCode }){
       </div>
       <div className="how">
         <Step n="1" t="Add your group" d="Type in up to 100 names — the whole group, wherever they are."/>
-        <Step n="2" t="Share out all 48" d="Every team goes to someone. Twelve members means four each; fewer means more each; more means teams get shared."/>
+        <Step n="2" t="Share out all 48" d="Every team goes to someone. Sixteen members means three each; fewer means more each; more means teams get shared."/>
         <Step n="3" t="Climb the table" d="One code lets anyone follow the group standings, predict games and track the pot."/>
       </div>
     </div>
@@ -416,9 +420,9 @@ function Create({ back, onDone }){
       )}
       {people.length>0 && <div className="chips">{people.map(p=>(<span key={p.id} className="chip">{p.name}<button onClick={()=>remove(p.id)}><X size={13}/></button></span>))}</div>}
       {people.length>=2 && <p className="hint"><Info size={13}/> {
-        people.length<12 ? `All 48 teams get shared out, so each member holds about ${perPerson} teams — no duplicates.`
-        : people.length===12 ? "The sweet spot: all 48 teams, exactly four each, no duplicates."
-        : "Everyone gets four teams and all 48 are covered, so the popular sides will be shared by a few people."}</p>}
+        people.length<16 ? `All 48 teams get shared out, so each member holds about ${perPerson} teams, with no duplicates.`
+        : people.length===16 ? "The sweet spot: all 48 teams, exactly three each, no duplicates."
+        : "Everyone gets three teams and all 48 are covered, so the popular sides will be shared by a few people."}</p>}
       <label className="field-lbl">Choose a group code <span className="muted">(everyone enters this)</span></label>
       <input className="input code-field display" placeholder="e.g. WORLDCUP26" value={code} maxLength={10}
         onChange={e=>{ setCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g,"").slice(0,10)); setErr(""); }}/>
@@ -722,7 +726,7 @@ function SquadsTab({ standings, titles, anyPlayed, teamHolders, openCard, setOpe
   const alpha = [...standings].sort((a,b)=>a.name.localeCompare(b.name));
   const hasDupes = Object.values(teamHolders||{}).some(c=>c>1);
   return (<div className="squads">
-    {hasDupes && <p className="hint"><Info size={13}/> With more than 12 members, every team is still allocated and the popular sides are shared. A <span className="t-share inline">×N</span> tag shows how many members hold that team.</p>}
+    {hasDupes && <p className="hint"><Info size={13}/> With more than 16 members, every team is still allocated and the popular sides are shared. A <span className="t-share inline">×N</span> tag shows how many members hold that team.</p>}
     {alpha.map(s=>(
     <Card key={s.id} s={s} titles={titles[s.id]||[]} anyPlayed={anyPlayed} teamHolders={teamHolders} open={openCard===s.id} onToggle={()=>setOpenCard(o=>o===s.id?null:s.id)}/>
   ))}</div>);
