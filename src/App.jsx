@@ -339,10 +339,25 @@ function Create({ back, onDone }){
   const [bulk, setBulk] = useState("");
   const [showBulk, setShowBulk] = useState(false);
   const [people, setPeople] = useState([]);
-  const [code, setCode] = useState(genCode(10));
+  const [code, setCode] = useState("");          // the person sets their own code first
+  const [avail, setAvail] = useState("idle");    // idle | checking | ok | taken
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
   const inputRef = useRef(null);
+
+  // Live, debounced availability check: once the code is a valid 10-char alphanumeric, look it up
+  // the same way "View a team" does and flag whether it is free. Debounced so we don't query on
+  // every keystroke; cancelled if the code changes mid-check so stale results never win.
+  useEffect(()=>{
+    if(!/^[A-Z0-9]{10}$/.test(code)){ setAvail("idle"); return; }
+    setAvail("checking");
+    let cancelled=false;
+    const t=setTimeout(async()=>{
+      try{ const g=await store.getGroup(code); if(!cancelled) setAvail(g?"taken":"ok"); }
+      catch{ if(!cancelled) setAvail("idle"); }
+    }, 450);
+    return ()=>{ cancelled=true; clearTimeout(t); };
+  }, [code]);
 
   const addName = (raw) => { const t=raw.trim(); if(!t) return;
     setPeople(p => { if(p.length>=100) return p; let nm=t,k=2; while(p.some(x=>x.name.toLowerCase()===nm.toLowerCase())) nm=`${t} (${k++})`;
@@ -359,7 +374,8 @@ function Create({ back, onDone }){
     if(!/^[A-Z0-9]{10}$/.test(c)){ setErr("Your code needs to be 10 letters or numbers."); return; }
     setBusy(true); setErr("");
     const taken = await store.getGroup(c); setBusy(false);
-    if(taken){ setErr("That code is already taken — try another."); return; }
+    // Re-check on submit in case the code was claimed in the moment before the click; fail gently.
+    if(taken){ setAvail("taken"); return; }
     const g = { code:c, name:name.trim()||"Our World Cup Draw", created:Date.now(),
       members:people, alloc:buildAllocations(people), results:{}, pool:{amount:0,cur:"AUD",structure:"top15"} };
     onDone(g);
@@ -391,16 +407,21 @@ function Create({ back, onDone }){
         people.length<12 ? `All 48 teams get shared out, so each member holds about ${perPerson} teams — no duplicates.`
         : people.length===12 ? "The sweet spot: all 48 teams, exactly four each, no duplicates."
         : "Everyone gets four teams and all 48 are covered, so the popular sides will be shared by a few people."}</p>}
-      <label className="field-lbl">Your group code <span className="muted">(everyone enters this)</span></label>
-      <div className="add-row">
-        <input className="input flex code-field display" placeholder="10 letters/numbers" value={code} maxLength={10}
-          onChange={e=>{ setCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g,"").slice(0,10)); setErr(""); }}/>
-        <button className="btn btn-ghost sq" onClick={()=>{ setCode(genCode(10)); setErr(""); }} title="Suggest a code"><Shuffle size={18}/></button>
+      <label className="field-lbl">Choose a group code <span className="muted">(everyone enters this)</span></label>
+      <input className="input code-field display" placeholder="e.g. WORLDCUP26" value={code} maxLength={10}
+        onChange={e=>{ setCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g,"").slice(0,10)); setErr(""); }}/>
+      <div className="code-foot">
+        {!codeOk
+          ? <span className="code-msg"><Info size={13}/> Pick something easy to remember and share. 10 letters or numbers.</span>
+          : avail==="checking" ? <span className="code-status checking">Checking…</span>
+          : avail==="ok" ? <span className="code-status ok"><Check size={14}/> Available</span>
+          : avail==="taken" ? <span className="code-status taken">That code is taken, try another.</span>
+          : <span className="code-msg"/>}
+        <button className="btn btn-link gen-link" onClick={()=>{ setCode(genCode(10)); setErr(""); }}><Shuffle size={14}/> Or generate one for me</button>
       </div>
-      <p className="hint"><Info size={13}/> Everyone in the group types this exact 10 character code on their device to follow the draw, the table and the pot.</p>
       {err && <p className="err">{err}</p>}
       <div className="sticky-cta">
-        <button className="btn btn-gold big full" disabled={people.length<2 || !codeOk || busy} onClick={generate}><Shuffle size={20}/> {busy?"Checking…":`Run the draw${people.length>=2?` · ${people.length}`:""}`}</button>
+        <button className="btn btn-gold big full" disabled={people.length<2 || avail!=="ok" || busy} onClick={generate}><Shuffle size={20}/> {busy?"Checking…":`Run the draw${people.length>=2?` · ${people.length}`:""}`}</button>
       </div>
     </div>
   );
@@ -1097,6 +1118,15 @@ const CSS = `
 .code-lbl{font-size:9px;font-weight:800;letter-spacing:.15em}
 .code-val{font-size:15px;letter-spacing:.04em}
 .code-field{letter-spacing:.16em;font-weight:700}
+.code-foot{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:10px;flex-wrap:wrap}
+.code-msg{display:flex;align-items:center;gap:6px;font-size:12.5px;color:rgba(251,247,236,.6);line-height:1.4}
+.code-msg svg{flex:none}
+.code-status{display:flex;align-items:center;gap:6px;font-size:12.5px;font-weight:600}
+.code-status svg{flex:none}
+.code-status.checking{color:rgba(251,247,236,.55)}
+.code-status.ok{color:#7be08c}
+.code-status.taken{color:#ffc78a}
+.gen-link{flex:none;white-space:nowrap;padding:6px 0}
 /* ProfitPulse credit */
 .pp-top{display:flex;align-items:center;gap:5px;width:fit-content;margin:12px auto 2px;padding:5px 13px;border:1px solid rgba(255,210,63,.4);border-radius:20px;background:rgba(255,210,63,.1);color:var(--gold);font-size:12px;font-weight:700;letter-spacing:.03em;text-decoration:none;position:relative;z-index:2}
 .pp-top b{font-weight:800}
