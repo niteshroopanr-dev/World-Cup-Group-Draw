@@ -429,17 +429,20 @@ export default function WorldCupFamilyDraw(){
   return (
     <div className="wc-root">
       <StyleBlock/>
-      <a className="pp-top" href="https://profit-pulse.com.au" target="_blank" rel="noopener noreferrer">Built by <b>ProfitPulse</b> ↗</a>
       {boom ? <Confetti key={boom} done={()=>setBoom(0)}/> : null}
       {view==="home" && <Home lastCode={lastCode} onCreate={()=>setView("create")} onJoin={()=>setView("join")}
         onResume={async()=>{ const g=await store.getGroup(lastCode); if(g) openGroup(g); else setLastCode(null); }}/>}
       {view==="create" && <Create back={()=>setView("home")}
-        onDone={async(g)=>{ await store.setGroup(g.code,g); await store.markCreator(g.code); setGroup(g); setIsCreator(true); setView("ceremony"); }}/>}
+        onDone={async(g)=>{ await store.setGroup(g.code,g); await store.markCreator(g.code); setGroup(g); setIsCreator(true); setView("drawing"); }}/>}
       {view==="join" && <Join back={()=>setView("home")} onFound={openGroup}/>}
+      {view==="drawing" && group && <Drawing onDone={()=>setView("ceremony")}/>}
       {view==="ceremony" && group && <Ceremony group={group} fire={fire} onEnter={()=>openGroup(group)}/>}
       {view==="group" && group && <GroupView group={group} preds={preds} onPick={savePick} mine={mine} toggleMine={toggleMine} isCreator={isCreator} matches={matches} knockouts={knockouts}
         onCeremony={()=>setView("ceremony")} saveGroup={saveGroup} saveResult={saveResult} exit={()=>{setGroup(null);setView("home");}}/>}
-      <footer className="foot">A just-for-fun group game · not affiliated with FIFA · no real money is handled here</footer>
+      <footer className="foot">
+        <div className="foot-note">A just-for-fun group game · not affiliated with FIFA · no real money is handled here</div>
+        {view!=="drawing" && <a className="foot-credit brand-logo" href="https://profit-pulse.com.au" target="_blank" rel="noopener noreferrer" aria-label="ProfitPulse, visit profit-pulse.com.au"><span className="foot-by">Built by</span><img className="foot-logo" src="/profitpulse-logo.png" alt="ProfitPulse"/></a>}
+      </footer>
     </div>
   );
 }
@@ -682,6 +685,41 @@ function Join({ back, onFound }){
   );
 }
 
+/* --------------------------- DRAW LOADING ------------------------- */
+// A short, fixed visual pause shown to the creator after the draw is computed and saved, before the
+// ceremony. Purely cosmetic: the allocation and the synced data are already done; this only delays
+// the view by a beat. Honours prefers-reduced-motion (softens to a fade) and always proceeds on a
+// timer, so it never blocks the flow.
+const DRAW_CAPTIONS = [
+  "Balancing the squads, no favourites allowed.",
+  "Sharing out the giants fairly, hold tight.",
+  "Doing the maths so nobody cops a dud squad.",
+  "Crunching the rankings. This is the ProfitPulse bit.",
+];
+function Drawing({ onDone }){
+  const [i, setI] = useState(0);
+  const [closing, setClosing] = useState(false);
+  useEffect(() => {
+    const timers = [];
+    DRAW_CAPTIONS.forEach((_, k) => { if(k>0) timers.push(setTimeout(()=>setI(k), k*1875)); });
+    timers.push(setTimeout(()=>setClosing(true), 7500));   // four captions read comfortably first
+    timers.push(setTimeout(onDone, 8500));                 // hold the closing state ~1s, then go
+    return () => timers.forEach(clearTimeout);
+  }, []);
+  return (
+    <div className="wrap draw-load">
+      <div className="dl-inner">
+        <a className="brand-logo dl-logo" href="https://profit-pulse.com.au" target="_blank" rel="noopener noreferrer" aria-label="ProfitPulse, visit profit-pulse.com.au">
+          <img src="/profitpulse-logo.png" alt="ProfitPulse"/>
+        </a>
+        <div className="dl-bar"><span/></div>
+        <div className="dl-cap">{closing ? "Squads balanced. Enjoy the games." : DRAW_CAPTIONS[i]}</div>
+        {closing && <div className="dl-by">by <span className="gold">ProfitPulse</span></div>}
+      </div>
+    </div>
+  );
+}
+
 /* ----------------------------- CEREMONY --------------------------- */
 function Ceremony({ group, onEnter, fire }){
   const members = group.members;
@@ -716,7 +754,6 @@ function Ceremony({ group, onEnter, fire }){
   const replay = () => { setDone(false); setMode(null); setIdx(0); };
 
   const strongest = useMemo(()=>{ let best=null,bv=-1; members.forEach(m=>{ const v=(group.alloc[m.id]||[]).reduce((s,id)=>s+(49-TEAMS[id].r),0); if(v>bv){bv=v;best=m;} }); return best; }, [group, members]);
-  const credit = <a className="pp-credit ceremony-credit" href="https://profit-pulse.com.au" target="_blank" rel="noopener noreferrer">Built by ProfitPulse</a>;
 
   if(done) return (
     <div className="wrap cer">
@@ -727,7 +764,6 @@ function Ceremony({ group, onEnter, fire }){
         <button className="btn btn-gold big full" onClick={onEnter}><Trophy size={20}/> See the group table</button>
         <button className="btn btn-link" onClick={replay}><RotateCcw size={15}/> Replay the draw</button>
       </div>
-      {credit}
     </div>
   );
 
@@ -749,7 +785,6 @@ function Ceremony({ group, onEnter, fire }){
         </button>
       </div>
       <button className="btn btn-ghost full mt-s" onClick={onEnter}><Shuffle size={18}/> Skip it, just deal them out</button>
-      {credit}
     </div>
   );
 
@@ -783,7 +818,6 @@ function Ceremony({ group, onEnter, fire }){
       <div className="sticky-cta">
         <button className="btn btn-gold big full" onClick={onNext}><Sparkles size={18}/> {atEnd ? "Finish the draw" : `Next: ${nextName}`}</button>
       </div>
-      {credit}
     </div>
   );
 }
@@ -1376,7 +1410,15 @@ const CSS = `
 .display{font-family:'Anton',sans-serif;letter-spacing:.015em;text-transform:uppercase;line-height:.96;font-weight:400}
 .gold{color:var(--gold)}.muted{color:rgba(251,247,236,.55);font-weight:500}.center{text-align:center}
 .wrap{max-width:680px;margin:0 auto;padding:20px 16px 130px;position:relative;z-index:1}
-.foot{position:relative;z-index:1;text-align:center;font-size:11px;color:rgba(251,247,236,.45);padding:0 16px 26px;max-width:680px;margin:-110px auto 0}
+.foot{position:relative;z-index:1;text-align:center;font-size:11px;color:rgba(251,247,236,.45);padding:13px 16px 26px;max-width:680px;margin:-110px auto 0;border-top:1px solid var(--line)}
+.foot-note{line-height:1.5}
+.foot-credit{display:inline-flex;align-items:center;gap:7px;margin-top:8px;font-size:12px;font-weight:600;letter-spacing:.02em;color:rgba(251,247,236,.5);line-height:1}
+.foot-by{line-height:1}
+.foot-logo{height:26px;width:auto;display:block}
+/* every ProfitPulse logo is a link to profit-pulse.com.au with a subtle hover */
+.brand-logo{cursor:pointer;text-decoration:none;transition:opacity .15s}
+.brand-logo:hover{opacity:.82}
+.brand-logo:active{opacity:.7}
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:9px;border:none;cursor:pointer;font-family:'Outfit';font-weight:700;font-size:15px;border-radius:14px;padding:13px 18px;transition:transform .12s,box-shadow .12s,background .15s;color:var(--ink)}
 .btn:active{transform:scale(.97)}
 .btn-gold{background:linear-gradient(180deg,#ffe066,#f4b400);color:#3a2a00;box-shadow:0 6px 0 #b88600,0 10px 22px rgba(0,0,0,.3)}
@@ -1442,12 +1484,6 @@ const CSS = `
 .code-status.ok{color:#7be08c}
 .code-status.taken{color:#ffc78a}
 .gen-link{flex:none;white-space:nowrap;padding:6px 0}
-/* ProfitPulse credit */
-.pp-top{display:flex;align-items:center;gap:5px;width:fit-content;margin:12px auto 2px;padding:5px 13px;border:1px solid rgba(255,210,63,.4);border-radius:20px;background:rgba(255,210,63,.1);color:var(--gold);font-size:12px;font-weight:700;letter-spacing:.03em;text-decoration:none;position:relative;z-index:2}
-.pp-top b{font-weight:800}
-.pp-top:active{transform:scale(.97)}
-.pp-credit{display:inline-block;color:var(--gold);font-weight:700;font-size:13px;text-decoration:none;border-bottom:1px solid rgba(255,210,63,.45)}
-.ceremony-credit{display:block;width:fit-content;margin:26px auto 0;text-align:center}
 /* Ceremony */
 .cer{padding-top:8px}
 .cer-h{font-size:clamp(34px,9vw,52px);margin:6px 0 0}
@@ -1656,4 +1692,20 @@ const CSS = `
 .assign-row{display:flex;align-items:center;gap:9px;flex-wrap:wrap;padding:9px 0;border-top:1px solid rgba(255,255,255,.07)}
 .assign-row .t-name{flex:1;min-width:90px}
 .assign-sel{flex:1;min-width:130px;max-width:180px;background:rgba(255,255,255,.07);border:1.5px solid var(--line);border-radius:10px;color:var(--cream);font-family:'Outfit';font-weight:600;font-size:13px;padding:9px 10px;outline:none;cursor:pointer}
+/* draw loading sequence */
+.draw-load{min-height:72vh;display:flex;align-items:center;justify-content:center;text-align:center}
+.dl-inner{max-width:440px;width:100%;padding:0 24px}
+.dl-logo{display:block;width:fit-content;margin:0 auto}
+.dl-logo img{display:block;width:240px;max-width:70vw;height:auto;animation:dlpulse 1.9s ease-in-out infinite}
+.dl-bar{position:relative;height:2px;width:240px;max-width:74%;margin:26px auto 0;background:rgba(255,255,255,.1);border-radius:2px;overflow:hidden}
+.dl-bar span{position:absolute;top:0;left:0;height:100%;width:0;background:linear-gradient(90deg,var(--gold2),var(--gold));border-radius:2px;animation:dlfill 8.5s linear forwards}
+.dl-cap{margin-top:22px;font-size:14px;font-weight:500;color:rgba(251,247,236,.7);line-height:1.5;min-height:21px;transition:opacity .3s}
+.dl-by{margin-top:9px;font-size:12.5px;font-weight:600;color:rgba(251,247,236,.5)}
+@keyframes dlpulse{0%,100%{opacity:.78;transform:scale(1)}50%{opacity:1;transform:scale(1.04)}}
+@keyframes dlfill{from{width:0}to{width:100%}}
+@keyframes dlfade{from{opacity:0}to{opacity:1}}
+@media (prefers-reduced-motion: reduce){
+  .dl-logo img{animation:dlfade .6s ease forwards}
+  .dl-bar span{animation:none;width:100%;opacity:.45}
+}
 `;
