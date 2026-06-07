@@ -1370,15 +1370,17 @@ function ShareInvite({ code }){
     const joinUrl = `${window.location.origin}/?code=${code}`;
     const message = `You're invited to our World Cup draw. A bit of fun for the tournament: you get a random set of national teams to follow, then we all battle it out on a shared leaderboard. Tap the link to jump in, your code is already loaded.
 
+${joinUrl}
+
 Code: ${code}
 
 Made by ProfitPulse. Every team at this World Cup is chasing the trophy; we help business owners chase theirs. https://profit-pulse.com.au`;
     if (typeof navigator !== "undefined" && typeof navigator.share === "function") {
-      try { await navigator.share({ title:"World Cup Group Draw", text:message, url:joinUrl }); }
+      try { await navigator.share({ title:"World Cup Group Draw", text:message }); }   // link is in the message; no url param so it is not appended again
       catch(e){ if(e && e.name==="AbortError") return; }   // user cancelled the sheet, or share failed; ignore quietly
       return;
     }
-    try { await navigator.clipboard.writeText(message + "\n" + joinUrl); setCopied(true); setTimeout(()=>setCopied(false),2000); }
+    try { await navigator.clipboard.writeText(message); setCopied(true); setTimeout(()=>setCopied(false),2000); }
     catch(e){}
   };
   return (
