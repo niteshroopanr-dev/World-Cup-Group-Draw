@@ -86,8 +86,11 @@ const shuffle = (arr) => { const a=[...arr]; for(let i=a.length-1;i>0;i--){const
 // Counts: 12 or fewer → no duplicates, all 48 split as evenly as possible (everyone on at least four,
 // exactly four at twelve). More than 12 → exactly four each; all 48 appear once and the extra slots
 // are duplicates drawn from outside the top 24 (mid and underdog) so the elite/strong balance holds.
-// Randomised throughout, so the same group can re-draw a different but similarly balanced result.
-const buildAllocations = (members) => {
+// opts.pins { memberId: [teamId,...] } locks teams to people first: they count toward each person's
+// running elite, elite+strong and strength tallies so the balancer compensates around them, and they
+// never move afterwards. opts.fewerIds names who gets the smaller squad at uneven sizes of twelve or
+// fewer. Randomised throughout, so an unpinned or partly-pinned draw still varies on re-run.
+const buildAllocations = (members, opts = {}) => {
   const N = members.length;
   const ids = Object.keys(TEAMS);
   const alloc = {}; members.forEach(m => alloc[m.id]=[]);
@@ -98,36 +101,67 @@ const buildAllocations = (members) => {
   ids.forEach(id => byTier[tierOf(id)-1].push(id));
   const [elite, strong, mid, under] = byTier;
   const cls = (id) => tierOf(id)===1 ? 0 : tierOf(id)===2 ? 1 : 2;   // elite / strong / other
+  const idx = members.map((_,i)=>i);
+  const memberIndex = {}; members.forEach((m,i)=>memberIndex[m.id]=i);
+
+  // Normalise pins: each valid team is claimed by at most one member (first claim wins).
+  const claim = {};                                   // teamId -> member index
+  Object.entries(opts.pins || {}).forEach(([mid_, teams]) => {
+    const i = memberIndex[mid_]; if (i === undefined) return;
+    (teams || []).forEach(t => { if (TEAMS[t] && claim[t] === undefined) claim[t] = i; });
+  });
+  const pinCount = members.map(()=>0);
+  Object.values(claim).forEach(i => pinCount[i]++);
 
   // Capacity per person: more than twelve → four each; twelve or fewer → all 48 split as evenly as
-  // possible (sizes differ by at most one, the remainder getting one extra).
-  const idx = members.map((_,i)=>i);
+  // possible (sizes differ by at most one). At uneven sizes opts.fewerIds names who gets the smaller
+  // squad; otherwise the extra team is handed out at random, favouring anyone whose pins need room.
   const cap = members.map(()=>4);
   if (N <= 12) {
-    const base = Math.floor(48/N);
+    const base = Math.floor(48/N), rem = 48 - base*N;   // rem people get base+1
     members.forEach((_,i)=>cap[i]=base);
-    shuffle(idx).slice(0, 48 - base*N).forEach(i => cap[i]++);
+    if (rem > 0) {
+      const fewer = Array.isArray(opts.fewerIds)
+        ? opts.fewerIds.map(id=>memberIndex[id]).filter(i=>i!==undefined) : null;
+      let big;
+      if (fewer && fewer.length === N - rem) {           // explicit smaller-squad choice
+        const fewerS = new Set(fewer); big = idx.filter(i=>!fewerS.has(i));
+      } else {                                            // random +1, but anyone needing room first
+        const need = idx.filter(i=>pinCount[i] > base);
+        const rest = shuffle(idx.filter(i=>pinCount[i] <= base));
+        big = [...need, ...rest].slice(0, rem);
+      }
+      new Set(big).forEach(i => cap[i] = base+1);
+    }
   }
 
   const hand = members.map(()=>[]);
   const has  = members.map(()=>new Set());
+  const locked = members.map(()=>new Set());          // pinned teams, never moved later
   const total = members.map(()=>0), eliteCnt = members.map(()=>0), esCnt = members.map(()=>0);
-  const place = (i, id) => { hand[i].push(id); has[i].add(id); total[i]+=strength(id);
-    if(cls(id)===0) eliteCnt[i]++; if(cls(id)<=1) esCnt[i]++; };
-  const pickMin = (key) => {                          // roomy member with the smallest key, ties random
+  const place = (i, id, lock) => { hand[i].push(id); has[i].add(id); total[i]+=strength(id);
+    if(cls(id)===0) eliteCnt[i]++; if(cls(id)<=1) esCnt[i]++; if(lock) locked[i].add(id); };
+
+  // Seed the locked pins first (defensively ignoring any that would exceed a member's cap) and take
+  // them out of the pool. Pinned teams now count toward each person's running tallies.
+  const claimed = new Set();
+  Object.entries(claim).forEach(([t, i]) => { if (hand[i].length < cap[i]) { place(i, t, true); claimed.add(t); } });
+  const free = (arr) => arr.filter(t => !claimed.has(t));
+
+  const pickMin = (key) => {                           // roomy member with the smallest key, ties random
     let best=-1; for(const i of shuffle(idx)){ if(hand[i].length>=cap[i]) continue;
       if(best===-1 || key(i)<key(best)) best=i; } return best;
   };
 
-  // Priority 1: spread elite as evenly as possible (each elite to whoever holds the fewest so far).
-  shuffle(elite).forEach(id => place(pickMin(i=>eliteCnt[i]), id));
+  // Priority 1: spread the remaining elite as evenly as possible around any pinned ones.
+  shuffle(free(elite)).forEach(id => { const i=pickMin(x=>eliteCnt[x]); if(i!==-1) place(i,id); });
   // Priority 2: compensation, handing strong to whoever has the lowest elite + strong count so far.
-  shuffle(strong).forEach(id => place(pickMin(i=>esCnt[i]), id));
+  shuffle(free(strong)).forEach(id => { const i=pickMin(x=>esCnt[x]); if(i!==-1) place(i,id); });
 
-  // Fill the rest from mid + underdog (plus duplicates above twelve, kept outside the top 24).
-  // Priority 3 seed: hand the strongest still-free team to the currently weakest squad with room.
-  const pool = [...mid, ...under];
-  const slotsLeft = members.reduce((s,_,i)=>s+(cap[i]-hand[i].length),0);
+  // Fill the rest from the remaining mid + underdog (plus duplicates above twelve, taken only from
+  // mid + underdog). Priority 3 seed: strongest still-free team to the currently weakest squad.
+  const pool = [...free(mid), ...free(under)];
+  const slotsLeft = idx.reduce((s,i)=>s+(cap[i]-hand[i].length),0);
   if (N > 12) { const rota = shuffle([...mid, ...under]); let r=0;
     while (pool.length < slotsLeft) pool.push(rota[r++ % rota.length]); }
   pool.sort((a,b)=>strength(b)-strength(a));
@@ -138,15 +172,15 @@ const buildAllocations = (members) => {
       if(best===-1 || total[i]<total[best]) best=i; }
     if (best !== -1) place(best, id); else leftover.push(id);
   }
-  // Any duplicate with no roomy taker (everyone with a spare slot already holds it) lands by swapping
-  // a mid/underdog team out of a full member to a roomy one. Only mid/underdog moves, so elite and
-  // elite+strong balance are never disturbed.
+  // Any duplicate with no roomy taker lands by swapping an unpinned mid/underdog team out of a full
+  // member to a roomy one. Only unpinned mid/underdog moves, so balance and pins stay intact.
   for (const X of leftover) {
     let P = idx.find(i => hand[i].length<cap[i] && !has[i].has(X));
     if (P === undefined) P = idx.find(i => hand[i].length<cap[i]);
+    if (P === undefined) break;
     for (const d of idx) {
       if (d===P || hand[d].length<cap[d] || has[d].has(X)) continue;
-      const zi = hand[d].findIndex(z => cls(z)===2 && z!==X && !has[P].has(z));
+      const zi = hand[d].findIndex(z => cls(z)===2 && z!==X && !has[P].has(z) && !locked[d].has(z));
       if (zi === -1) continue;
       const Z = hand[d][zi];
       hand[d][zi]=X; has[d].delete(Z); has[d].add(X); total[d]+=strength(X)-strength(Z);
@@ -155,7 +189,7 @@ const buildAllocations = (members) => {
   }
 
   // Priority 3 refine: same-class pair swaps (elite↔elite, strong↔strong, other↔other) that pull the
-  // squad-strength totals together. Same class keeps the elite and elite+strong counts untouched.
+  // squad-strength totals together. Same class keeps the counts untouched; pinned teams never move.
   const sumT = total.reduce((a,b)=>a+b,0), mean = sumT/N, dev = v => (v-mean)*(v-mean);
   for (let pass=0; pass<300; pass++) {
     let improved=false; const ord = shuffle(idx);
@@ -163,6 +197,7 @@ const buildAllocations = (members) => {
       if (i>=j) continue;
       for (let x=0;x<hand[i].length;x++) for (let y=0;y<hand[j].length;y++) {
         const a=hand[i][x], b=hand[j][y];
+        if (locked[i].has(a) || locked[j].has(b)) continue;     // never move locked teams
         if (a===b || cls(a)!==cls(b) || has[i].has(b) || has[j].has(a)) continue;
         const ni=total[i]-strength(a)+strength(b), nj=total[j]-strength(b)+strength(a);
         if (dev(ni)+dev(nj) < dev(total[i])+dev(total[j]) - 1e-9) {
@@ -176,6 +211,18 @@ const buildAllocations = (members) => {
 
   members.forEach((m,i)=>{ alloc[m.id]=hand[i]; });
   return alloc;
+};
+
+// Target squad size per member, mirroring buildAllocations' caps for the deterministic cases. Used by
+// the creator-only hand-pick screen to show per-person targets and stop over-pinning. At uneven sizes
+// of twelve or fewer it needs fewerIds (who gets the smaller squad); elsewhere it is fixed.
+const squadCaps = (members, fewerIds) => {
+  const N = members.length;
+  if (N > 12) return members.map(()=>4);
+  const base = Math.floor(48/N), rem = 48 - base*N;
+  if (rem === 0) return members.map(()=>base);
+  const fewerS = new Set(fewerIds || []);
+  return members.map(m => fewerS.has(m.id) ? base : base+1);
 };
 
 const CURRENCIES = ["AUD","USD","GBP","EUR","NZD","ZAR","INR","JPY"];
@@ -431,6 +478,7 @@ function Create({ back, onDone }){
   const [avail, setAvail] = useState("idle");    // idle | checking | ok | taken
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
+  const [stage, setStage] = useState("form");    // form | setup (creator-only count choice + hand-pick)
   const inputRef = useRef(null);
 
   // Live, debounced availability check: once the code is a valid 10-char alphanumeric, look it up
@@ -456,7 +504,8 @@ function Create({ back, onDone }){
   const perPerson = people.length ? Math.ceil(48/people.length) : 0;
   const codeOk = /^[A-Z0-9]{10}$/.test(code);
 
-  const generate = async () => {
+  // Validate, then hand off to the optional creator setup (count choice + hand-pick) before the draw.
+  const start = async () => {
     const c = code.trim().toUpperCase();
     if(people.length<2){ setErr("Add at least two members for the draw."); return; }
     if(!/^[A-Z0-9]{10}$/.test(c)){ setErr("Your code needs to be 10 letters or numbers."); return; }
@@ -464,10 +513,16 @@ function Create({ back, onDone }){
     const taken = await store.getGroup(c); setBusy(false);
     // Re-check on submit in case the code was claimed in the moment before the click; fail gently.
     if(taken){ setAvail("taken"); return; }
-    const g = { code:c, name:name.trim()||"Our World Cup Draw", created:Date.now(),
-      members:people, alloc:buildAllocations(people), results:{}, pool:{amount:0,cur:"AUD",structure:"top15"} };
+    setStage("setup");
+  };
+  // Pins and fewerIds are transient creator-side inputs; only the resulting allocation is saved.
+  const finish = (pins, fewerIds) => {
+    const g = { code:code.trim().toUpperCase(), name:name.trim()||"Our World Cup Draw", created:Date.now(),
+      members:people, alloc:buildAllocations(people, { pins, fewerIds }), results:{}, pool:{amount:0,cur:"AUD",structure:"top15"} };
     onDone(g);
   };
+
+  if(stage==="setup") return <Setup members={people} onBack={()=>setStage("form")} finish={finish}/>;
 
   return (
     <div className="wrap">
@@ -509,7 +564,98 @@ function Create({ back, onDone }){
       </div>
       {err && <p className="err">{err}</p>}
       <div className="sticky-cta">
-        <button className="btn btn-gold big full" disabled={people.length<2 || avail!=="ok" || busy} onClick={generate}><Shuffle size={20}/> {busy?"Checking…":`Run the draw${people.length>=2?` · ${people.length}`:""}`}</button>
+        <button className="btn btn-gold big full" disabled={people.length<2 || avail!=="ok" || busy} onClick={start}><Shuffle size={20}/> {busy?"Checking…":`Run the draw${people.length>=2?` · ${people.length}`:""}`}</button>
+      </div>
+    </div>
+  );
+}
+
+/* ------------------------------- SETUP ---------------------------- */
+// Creator-only flow between the form and the ceremony: an optional count choice (uneven sizes of
+// twelve or fewer) and an optional hand-pick screen. Both are skippable; skipping both gives exactly
+// today's draw. Inputs are transient and never synced; only the final allocation is built and saved.
+const toPins = (assign) => { const p={}; Object.entries(assign).forEach(([t,mid])=>{ if(mid){ (p[mid]=p[mid]||[]).push(t); } }); return p; };
+
+function Setup({ members, onBack, finish }){
+  const N = members.length;
+  const base = Math.floor(48/N), rem = 48 - base*N;
+  const uneven = rem !== 0 && N <= 12;
+  const smaller = N - rem;                          // how many people get the smaller squad
+  const [phase, setPhase] = useState(uneven ? "count" : "manual");   // count | choose | manual
+  const [fewerIds, setFewerIds] = useState(null);  // the chosen (or app-picked) smaller-squad set
+  const [sel, setSel] = useState([]);              // selections while choosing who gets fewer
+  const [assign, setAssign] = useState({});        // teamId -> memberId pins
+
+  const caps = useMemo(()=>squadCaps(members, fewerIds), [members, fewerIds]);
+  const capMap = useMemo(()=>{ const o={}; members.forEach((m,i)=>o[m.id]=caps[i]); return o; }, [members, caps]);
+  const pinCount = useMemo(()=>{ const o={}; members.forEach(m=>o[m.id]=0);
+    Object.values(assign).forEach(mid=>{ if(mid) o[mid]=(o[mid]||0)+1; }); return o; }, [assign, members]);
+  const tiers = useMemo(()=>{ const t=[[],[],[],[]]; Object.keys(TEAMS).forEach(id=>t[tierOf(id)-1].push(id));
+    t.forEach(a=>a.sort((x,y)=>TEAMS[x].r-TEAMS[y].r)); return t; }, []);
+
+  if(phase==="count") return (
+    <div className="modal-overlay">
+      <div className="modal-card">
+        <div className="modal-h">Even it out?</div>
+        <p className="lede" style={{margin:"8px 0 0"}}>The 48 teams will not split evenly between {N} people.</p>
+        <div className="modal-split">{rem} {rem===1?"person gets":"people get"} {base+1} teams and {smaller} {smaller===1?"gets":"get"} {base}.</div>
+        <p className="hint" style={{marginTop:0}}><Info size={13}/> Squads are still balanced to be about equally strong, so whoever gets fewer teams tends to get higher-ranked ones to make up for it. It is fine to let the app decide.</p>
+        <div className="modal-actions">
+          <button className="btn btn-gold full" onClick={()=>{ setSel([]); setPhase("choose"); }}><Users size={18}/> Let me choose who gets fewer</button>
+          <button className="btn btn-ghost full" onClick={()=>{ setFewerIds(shuffle(members).slice(0, smaller).map(m=>m.id)); setPhase("manual"); }}><Shuffle size={18}/> Let the app decide</button>
+        </div>
+      </div>
+    </div>
+  );
+
+  if(phase==="choose") return (
+    <div className="modal-overlay">
+      <div className="modal-card">
+        <div className="modal-h">Who gets the smaller squad?</div>
+        <p className="hint" style={{marginTop:8}}><Info size={13}/> Pick {smaller} of {N}. They will get {base} teams; everyone else gets {base+1}.</p>
+        <div className="choose-list">
+          {members.map(m=>{ const on=sel.includes(m.id);
+            return <button key={m.id} className={"choose-name"+(on?" on":"")}
+              onClick={()=>setSel(s => on ? s.filter(x=>x!==m.id) : (s.length>=smaller ? s : [...s, m.id]))}>
+              <span>{m.name}</span>{on && <Check size={16}/>}</button>; })}
+        </div>
+        <div className="modal-actions">
+          <button className="btn btn-gold full" disabled={sel.length!==smaller} onClick={()=>{ setFewerIds(sel); setPhase("manual"); }}>Continue · {sel.length} of {smaller} picked</button>
+          <button className="btn btn-link" onClick={()=>setPhase("count")}><ArrowLeft size={15}/> Back</button>
+        </div>
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="wrap">
+      <TopBar back={onBack} title="Hand-pick teams (optional)"/>
+      <p className="hint"><Info size={13}/> Anything left on Auto is shared out by the balanced draw. Hand-picking a lot of teams for one person can tip the balance, so light touches work best.</p>
+      <div className="setup-people">
+        {members.map(m=>{ const full=pinCount[m.id]>=capMap[m.id];
+          return <span key={m.id} className={"setup-person"+(full?" full":"")}>{m.name} · {pinCount[m.id]} of {capMap[m.id]}{full?" (full)":""}</span>; })}
+      </div>
+      {tiers.map((arr,ti)=>(
+        <div key={ti}>
+          <div className="md-head" style={{color:TIER_VAR[ti+1]}}>{TIER_NAMES[ti+1]}</div>
+          {arr.map(id=>(
+            <div className="assign-row" key={id}>
+              <span className="t-flag">{TEAMS[id].f}</span>
+              <span className="t-name">{TEAMS[id].n}</span>
+              <span className="t-tier" style={{background:TIER_VAR[tierOf(id)]}}>{TIER_NAMES[tierOf(id)]}</span>
+              <select className="assign-sel" value={assign[id]||""} onChange={e=>{ const v=e.target.value;
+                setAssign(prev=>{ const o={...prev}; if(v) o[id]=v; else delete o[id]; return o; }); }}>
+                <option value="">Auto</option>
+                {members.map(m=>{ const full=pinCount[m.id]>=capMap[m.id] && assign[id]!==m.id;
+                  return <option key={m.id} value={m.id} disabled={full}>{m.name}{full?" (full)":""}</option>; })}
+              </select>
+            </div>
+          ))}
+        </div>
+      ))}
+      <div className="sticky-cta">
+        <button className="btn btn-gold big full" onClick={()=>finish(toPins(assign), fewerIds || undefined)}><Shuffle size={20}/> Run the draw</button>
+        <button className="btn btn-link" style={{width:"100%",marginTop:8}} onClick={()=>finish({}, fewerIds || undefined)}>Skip, allocate everything automatically</button>
       </div>
     </div>
   );
@@ -1494,4 +1640,20 @@ const CSS = `
 .confetti{position:fixed;inset:0;pointer-events:none;z-index:99;overflow:hidden}
 .confetti span{position:absolute;top:-20px;border-radius:2px;animation-name:fall;animation-timing-function:ease-in;animation-fill-mode:forwards}
 @keyframes fall{to{transform:translateY(110vh) rotate(540deg);opacity:0}}
+/* creator setup: count pop-up + hand-pick screen */
+.modal-overlay{position:fixed;inset:0;z-index:60;background:rgba(4,20,12,.74);backdrop-filter:blur(3px);display:flex;align-items:center;justify-content:center;padding:20px}
+.modal-card{background:var(--card);border:1.5px solid rgba(255,210,63,.28);border-radius:20px;padding:22px 18px;max-width:440px;width:100%;max-height:88vh;overflow:auto}
+.modal-h{font-family:'Anton',sans-serif;text-transform:uppercase;letter-spacing:.03em;font-size:21px;color:var(--cream)}
+.modal-split{font-weight:700;color:var(--gold);font-size:15.5px;margin:12px 0;line-height:1.4}
+.modal-actions{display:flex;flex-direction:column;gap:10px;margin-top:18px}
+.choose-list{margin:14px 0 4px;max-height:46vh;overflow:auto}
+.choose-name{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;padding:11px 13px;border:1.5px solid var(--line);border-radius:12px;margin-bottom:8px;cursor:pointer;color:var(--cream);font-family:'Outfit';font-weight:600;font-size:14.5px;background:rgba(255,255,255,.04);text-align:left}
+.choose-name.on{border-color:var(--gold);background:rgba(255,210,63,.12)}
+.choose-name svg{color:var(--gold);flex:none}
+.setup-people{display:flex;flex-wrap:wrap;gap:6px;margin:14px 0 6px}
+.setup-person{font-size:12px;font-weight:600;color:rgba(251,247,236,.66);background:rgba(255,255,255,.05);border:1px solid var(--line);border-radius:8px;padding:4px 9px}
+.setup-person.full{color:#7be08c;border-color:rgba(123,224,140,.4)}
+.assign-row{display:flex;align-items:center;gap:9px;flex-wrap:wrap;padding:9px 0;border-top:1px solid rgba(255,255,255,.07)}
+.assign-row .t-name{flex:1;min-width:90px}
+.assign-sel{flex:1;min-width:130px;max-width:180px;background:rgba(255,255,255,.07);border:1.5px solid var(--line);border-radius:10px;color:var(--cream);font-family:'Outfit';font-weight:600;font-size:13px;padding:9px 10px;outline:none;cursor:pointer}
 `;
