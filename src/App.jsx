@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import {
   Trophy, Users, UserPlus, Plus, X, Copy, Check, ArrowLeft, Sparkles,
-  Crown, Coins, Wand2, Flag, Shuffle, Info, RotateCcw, Lock, ChevronDown
+  Crown, Coins, Wand2, Flag, Shuffle, Info, RotateCcw, Lock, ChevronDown, Share2
 } from "lucide-react";
 import { supabase } from "./supabase.js";
 
@@ -76,6 +76,9 @@ const FIX_BY_TEAM = (() => {
 const CODE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 const genCode = (len=10) => Array.from({length:len}, () => CODE_CHARS[Math.floor(Math.random()*CODE_CHARS.length)]).join("");
 const shuffle = (arr) => { const a=[...arr]; for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];} return a; };
+// Tap-to-join deep link: read ?code= from the URL, normalised the same way the join field is. Returns
+// a valid 10-char alphanumeric code (uppercase) or "" when absent/invalid, so the normal landing is unaffected.
+const readUrlCode = () => { try { const c=(new URLSearchParams(window.location.search).get("code")||"").toUpperCase().replace(/[^A-Z0-9]/g,""); return /^[A-Z0-9]{10}$/.test(c) ? c : ""; } catch { return ""; } };
 
 // Allocation: every one of the 48 teams is always shared out and the squads are balanced to be about
 // equally strong. Team strength = 49 - r (top side worth 48, lowest worth 1); elite = tier 1, strong
@@ -323,7 +326,8 @@ const store = {
 
 /* ================================================================== */
 export default function WorldCupFamilyDraw(){
-  const [view, setView] = useState("home");
+  const [view, setView] = useState(() => readUrlCode() ? "join" : "home");   // ?code= deep link lands on Join
+  const [joinCode, setJoinCode] = useState(() => readUrlCode());             // pre-filled join code (not auto-submitted)
   const [group, setGroup] = useState(null);
   const [preds, setPreds] = useState({});
   const [mine, setMine] = useState([]);
@@ -430,11 +434,11 @@ export default function WorldCupFamilyDraw(){
     <div className="wc-root">
       <StyleBlock/>
       {boom ? <Confetti key={boom} done={()=>setBoom(0)}/> : null}
-      {view==="home" && <Home lastCode={lastCode} onCreate={()=>setView("create")} onJoin={()=>setView("join")}
+      {view==="home" && <Home lastCode={lastCode} onCreate={()=>setView("create")} onJoin={()=>{ setJoinCode(""); setView("join"); }}
         onResume={async()=>{ const g=await store.getGroup(lastCode); if(g) openGroup(g); else setLastCode(null); }}/>}
       {view==="create" && <Create back={()=>setView("home")}
         onDone={async(g)=>{ await store.setGroup(g.code,g); await store.markCreator(g.code); setGroup(g); setIsCreator(true); setView("drawing"); }}/>}
-      {view==="join" && <Join back={()=>setView("home")} onFound={openGroup}/>}
+      {view==="join" && <Join back={()=>setView("home")} onFound={openGroup} initialCode={joinCode}/>}
       {view==="drawing" && group && <Drawing onDone={()=>setView("ceremony")}/>}
       {view==="ceremony" && group && <Ceremony group={group} fire={fire} onEnter={()=>openGroup(group)}/>}
       {view==="group" && group && <GroupView group={group} preds={preds} onPick={savePick} mine={mine} toggleMine={toggleMine} isCreator={isCreator} matches={matches} knockouts={knockouts}
@@ -665,8 +669,8 @@ function Setup({ members, onBack, finish }){
 }
 
 /* ------------------------------- JOIN ----------------------------- */
-function Join({ back, onFound }){
-  const [code,setCode]=useState(""); const [err,setErr]=useState(""); const [busy,setBusy]=useState(false);
+function Join({ back, onFound, initialCode }){
+  const [code,setCode]=useState(initialCode || ""); const [err,setErr]=useState(""); const [busy,setBusy]=useState(false);
   const go = async () => { const c=code.trim().toUpperCase(); if(c.length<4){setErr("Enter the group code you were given.");return;}
     setBusy(true); setErr(""); const g=await store.getGroup(c); setBusy(false);
     if(g) onFound(g); else setErr("No group found for that code. Double-check the characters?"); };
@@ -879,6 +883,7 @@ function GroupView({ group, preds, onPick, mine, toggleMine, saveGroup, saveResu
         <div className="grp-id"><div className="grp-name display">{group.name}</div><div className="grp-meta">{group.members.length} members</div></div>
         <CodePill code={group.code}/>
       </div>
+      <ShareInvite code={group.code}/>
       <Banner nextFx={nextFx} lastFx={lastFx} now={now} leader={anyPlayed?standings[0]:null} results={results} matches={matches}/>
       {isCreator && <button className="replay-draw" onClick={onCeremony}><Sparkles size={14}/> Watch the draw again</button>}
       <div className="tabs">
@@ -1357,6 +1362,33 @@ function CodePill({ code }){
   return (<button className="code-pill" onClick={copy} title="Copy group code"><span className="code-lbl">CODE</span><span className="code-val display">{code}</span>{done?<Check size={15}/>:<Copy size={14}/>}</button>);
 }
 
+// Share invite: native share sheet where available, otherwise copy the message to the clipboard. A
+// purely client-side action, it never touches the saved data or the Supabase sync.
+function ShareInvite({ code }){
+  const [copied,setCopied]=useState(false);
+  const share = async () => {
+    const joinUrl = `${window.location.origin}/?code=${code}`;
+    const message = `You're invited to our World Cup draw. A bit of fun for the tournament: you get a random set of national teams to follow, then we all battle it out on a shared leaderboard. Tap the link to jump in, your code is already loaded.
+
+Code: ${code}
+
+Made by ProfitPulse. Every team at this World Cup is chasing the trophy; we help business owners chase theirs. https://profit-pulse.com.au`;
+    if (typeof navigator !== "undefined" && typeof navigator.share === "function") {
+      try { await navigator.share({ title:"World Cup Group Draw", text:message, url:joinUrl }); }
+      catch(e){ if(e && e.name==="AbortError") return; }   // user cancelled the sheet, or share failed; ignore quietly
+      return;
+    }
+    try { await navigator.clipboard.writeText(message + "\n" + joinUrl); setCopied(true); setTimeout(()=>setCopied(false),2000); }
+    catch(e){}
+  };
+  return (
+    <div className="share-invite">
+      <button className="btn btn-ghost share-btn" onClick={share}><Share2 size={16}/> Share invite</button>
+      {copied && <span className="share-copied"><Check size={14}/> Copied, paste it to your group</span>}
+    </div>
+  );
+}
+
 /* ---------------------------- PAYOUT MATHS ------------------------ */
 function computePayouts(standings, pool){
   const N=standings.length, amt=pool.amount, out={};
@@ -1518,6 +1550,9 @@ const CSS = `
 .cer-done .ball{font-size:60px}
 .cer-done .btn-gold{margin-top:8px}
 .code-pill svg{position:absolute;top:5px;right:5px;opacity:.6}
+.share-invite{display:flex;align-items:center;flex-wrap:wrap;gap:10px;margin:-2px 0 14px}
+.share-btn{padding:9px 14px;font-size:13.5px}
+.share-copied{display:inline-flex;align-items:center;gap:5px;font-size:12.5px;font-weight:600;color:#7be08c}
 .banner{background:rgba(0,0,0,.22);border:1px solid var(--line);border-radius:17px;padding:13px;margin-bottom:14px}
 .brag{display:flex;align-items:center;gap:7px;font-size:13px;background:rgba(255,210,63,.13);border:1px solid rgba(255,210,63,.3);color:#ffe89a;padding:8px 12px;border-radius:11px;margin-bottom:11px}
 .brag svg{color:var(--gold);flex:none}
