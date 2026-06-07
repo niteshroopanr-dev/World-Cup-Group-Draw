@@ -11,27 +11,27 @@ import { supabase } from "./supabase.js";
 /*  to tier the draw. The live website version pulls official figures. */
 /* ------------------------------------------------------------------ */
 const TEAMS = {
-  ESP:{n:"Spain",f:"🇪🇸",g:"H",r:1},  ARG:{n:"Argentina",f:"🇦🇷",g:"J",r:2},
-  FRA:{n:"France",f:"🇫🇷",g:"I",r:3}, ENG:{n:"England",f:"🏴󠁧󠁢󠁥󠁮󠁧󠁿",g:"L",r:4},
-  BRA:{n:"Brazil",f:"🇧🇷",g:"C",r:5}, POR:{n:"Portugal",f:"🇵🇹",g:"K",r:6},
-  NED:{n:"Netherlands",f:"🇳🇱",g:"F",r:7}, BEL:{n:"Belgium",f:"🇧🇪",g:"G",r:8},
-  GER:{n:"Germany",f:"🇩🇪",g:"E",r:9}, CRO:{n:"Croatia",f:"🇭🇷",g:"L",r:10},
-  MAR:{n:"Morocco",f:"🇲🇦",g:"C",r:11}, COL:{n:"Colombia",f:"🇨🇴",g:"K",r:12},
-  MEX:{n:"Mexico",f:"🇲🇽",g:"A",r:13}, URU:{n:"Uruguay",f:"🇺🇾",g:"H",r:14},
-  USA:{n:"USA",f:"🇺🇸",g:"D",r:15}, SUI:{n:"Switzerland",f:"🇨🇭",g:"B",r:16},
-  JPN:{n:"Japan",f:"🇯🇵",g:"F",r:17}, SEN:{n:"Senegal",f:"🇸🇳",g:"I",r:18},
-  IRN:{n:"Iran",f:"🇮🇷",g:"G",r:19}, KOR:{n:"South Korea",f:"🇰🇷",g:"A",r:20},
+  ESP:{n:"Spain",f:"🇪🇸",g:"H",r:2},  ARG:{n:"Argentina",f:"🇦🇷",g:"J",r:3},
+  FRA:{n:"France",f:"🇫🇷",g:"I",r:1}, ENG:{n:"England",f:"🏴󠁧󠁢󠁥󠁮󠁧󠁿",g:"L",r:4},
+  BRA:{n:"Brazil",f:"🇧🇷",g:"C",r:6}, POR:{n:"Portugal",f:"🇵🇹",g:"K",r:5},
+  NED:{n:"Netherlands",f:"🇳🇱",g:"F",r:7}, BEL:{n:"Belgium",f:"🇧🇪",g:"G",r:9},
+  GER:{n:"Germany",f:"🇩🇪",g:"E",r:10}, CRO:{n:"Croatia",f:"🇭🇷",g:"L",r:11},
+  MAR:{n:"Morocco",f:"🇲🇦",g:"C",r:8}, COL:{n:"Colombia",f:"🇨🇴",g:"K",r:12},
+  MEX:{n:"Mexico",f:"🇲🇽",g:"A",r:14}, URU:{n:"Uruguay",f:"🇺🇾",g:"H",r:16},
+  USA:{n:"USA",f:"🇺🇸",g:"D",r:15}, SUI:{n:"Switzerland",f:"🇨🇭",g:"B",r:18},
+  JPN:{n:"Japan",f:"🇯🇵",g:"F",r:17}, SEN:{n:"Senegal",f:"🇸🇳",g:"I",r:13},
+  IRN:{n:"Iran",f:"🇮🇷",g:"G",r:19}, KOR:{n:"South Korea",f:"🇰🇷",g:"A",r:23},
   ECU:{n:"Ecuador",f:"🇪🇨",g:"E",r:21}, AUT:{n:"Austria",f:"🇦🇹",g:"J",r:22},
-  AUS:{n:"Australia",f:"🇦🇺",g:"D",r:23}, TUR:{n:"Türkiye",f:"🇹🇷",g:"D",r:24},
-  NOR:{n:"Norway",f:"🇳🇴",g:"I",r:25}, SWE:{n:"Sweden",f:"🇸🇪",g:"F",r:26},
-  EGY:{n:"Egypt",f:"🇪🇬",g:"G",r:27}, CAN:{n:"Canada",f:"🇨🇦",g:"B",r:28},
-  CIV:{n:"Côte d'Ivoire",f:"🇨🇮",g:"E",r:29}, TUN:{n:"Tunisia",f:"🇹🇳",g:"F",r:30},
-  ALG:{n:"Algeria",f:"🇩🇿",g:"J",r:31}, QAT:{n:"Qatar",f:"🇶🇦",g:"B",r:32},
-  PAR:{n:"Paraguay",f:"🇵🇾",g:"D",r:33}, CZE:{n:"Czechia",f:"🇨🇿",g:"A",r:34},
-  SCO:{n:"Scotland",f:"🏴󠁧󠁢󠁳󠁣󠁴󠁿",g:"C",r:35}, PAN:{n:"Panama",f:"🇵🇦",g:"L",r:36},
-  KSA:{n:"Saudi Arabia",f:"🇸🇦",g:"H",r:37}, IRQ:{n:"Iraq",f:"🇮🇶",g:"I",r:38},
-  UZB:{n:"Uzbekistan",f:"🇺🇿",g:"K",r:39}, RSA:{n:"South Africa",f:"🇿🇦",g:"A",r:40},
-  JOR:{n:"Jordan",f:"🇯🇴",g:"J",r:41}, COD:{n:"DR Congo",f:"🇨🇩",g:"K",r:42},
+  AUS:{n:"Australia",f:"🇦🇺",g:"D",r:24}, TUR:{n:"Türkiye",f:"🇹🇷",g:"D",r:20},
+  NOR:{n:"Norway",f:"🇳🇴",g:"I",r:28}, SWE:{n:"Sweden",f:"🇸🇪",g:"F",r:31},
+  EGY:{n:"Egypt",f:"🇪🇬",g:"G",r:26}, CAN:{n:"Canada",f:"🇨🇦",g:"B",r:27},
+  CIV:{n:"Côte d'Ivoire",f:"🇨🇮",g:"E",r:30}, TUN:{n:"Tunisia",f:"🇹🇳",g:"F",r:35},
+  ALG:{n:"Algeria",f:"🇩🇿",g:"J",r:25}, QAT:{n:"Qatar",f:"🇶🇦",g:"B",r:38},
+  PAR:{n:"Paraguay",f:"🇵🇾",g:"D",r:32}, CZE:{n:"Czechia",f:"🇨🇿",g:"A",r:33},
+  SCO:{n:"Scotland",f:"🏴󠁧󠁢󠁳󠁣󠁴󠁿",g:"C",r:34}, PAN:{n:"Panama",f:"🇵🇦",g:"L",r:29},
+  KSA:{n:"Saudi Arabia",f:"🇸🇦",g:"H",r:41}, IRQ:{n:"Iraq",f:"🇮🇶",g:"I",r:39},
+  UZB:{n:"Uzbekistan",f:"🇺🇿",g:"K",r:37}, RSA:{n:"South Africa",f:"🇿🇦",g:"A",r:40},
+  JOR:{n:"Jordan",f:"🇯🇴",g:"J",r:42}, COD:{n:"DR Congo",f:"🇨🇩",g:"K",r:36},
   BIH:{n:"Bosnia & Herz.",f:"🇧🇦",g:"B",r:43}, CPV:{n:"Cabo Verde",f:"🇨🇻",g:"H",r:44},
   GHA:{n:"Ghana",f:"🇬🇭",g:"L",r:45}, CUW:{n:"Curaçao",f:"🇨🇼",g:"E",r:46},
   HAI:{n:"Haiti",f:"🇭🇹",g:"C",r:47}, NZL:{n:"New Zealand",f:"🇳🇿",g:"G",r:48},
@@ -77,32 +77,104 @@ const CODE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 const genCode = (len=10) => Array.from({length:len}, () => CODE_CHARS[Math.floor(Math.random()*CODE_CHARS.length)]).join("");
 const shuffle = (arr) => { const a=[...arr]; for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];} return a; };
 
-// Allocation: every one of the 48 teams is always shared out across the group.
-//  • 16 members  → exactly 3 each, one per ranking third, no duplicates.
-//  • <16 members → all 48 dealt evenly, so members hold more than 3. No duplicates.
-//  • >16 members → 3 each (one per ranking third); all 48 covered once, the rest are duplicates.
+// Allocation: every one of the 48 teams is always shared out and the squads are balanced to be about
+// equally strong. Team strength = 49 - r (top side worth 48, lowest worth 1); elite = tier 1, strong
+// = tier 2. The balance follows a strict priority order, each level only relaxed to help the next:
+//   1. elite teams per person as even as possible;
+//   2. then elite + strong per person as even as possible (fewer elite is compensated with strong);
+//   3. then each person's total squad strength as even as possible.
+// Counts: 12 or fewer → no duplicates, all 48 split as evenly as possible (everyone on at least four,
+// exactly four at twelve). More than 12 → exactly four each; all 48 appear once and the extra slots
+// are duplicates drawn from outside the top 24 (mid and underdog) so the elite/strong balance holds.
+// Randomised throughout, so the same group can re-draw a different but similarly balanced result.
 const buildAllocations = (members) => {
   const N = members.length;
-  const tiers = [[],[],[],[]];
-  Object.keys(TEAMS).forEach(id => tiers[tierOf(id)-1].push(id));
+  const ids = Object.keys(TEAMS);
   const alloc = {}; members.forEach(m => alloc[m.id]=[]);
   if (N === 0) return alloc;
-  if (N <= 16) {
-    // Continuous pointer across the four shuffled tiers → all 48 dealt, even hands, tier-spread.
-    // No duplicates up to 16; sixteen is the sweet spot of exactly three each.
-    let ptr = 0;
-    tiers.forEach(t => shuffle(t).forEach(team => { alloc[members[ptr % N].id].push(team); ptr++; }));
-  } else {
-    // > 16 members: three teams each, one from each third of the rankings (a contender, a mid and
-    // a long shot). Cover all 16 in a third, then duplicate evenly, spreading shared teams fairly.
-    const ranked = Object.keys(TEAMS).sort((a,b)=>TEAMS[a].r-TEAMS[b].r);
-    const bands = [ranked.slice(0,16), ranked.slice(16,32), ranked.slice(32,48)];
-    bands.forEach(band => {
-      let deck = []; while (deck.length < N) deck = deck.concat(shuffle(band));
-      deck = deck.slice(0, N);
-      shuffle(members.map((_,i)=>i)).forEach((mi, idx) => alloc[members[mi].id].push(deck[idx]));
-    });
+
+  const strength = (id) => 49 - TEAMS[id].r;
+  const byTier = [[],[],[],[]];                       // byTier[0] elite … byTier[3] underdog
+  ids.forEach(id => byTier[tierOf(id)-1].push(id));
+  const [elite, strong, mid, under] = byTier;
+  const cls = (id) => tierOf(id)===1 ? 0 : tierOf(id)===2 ? 1 : 2;   // elite / strong / other
+
+  // Capacity per person: more than twelve → four each; twelve or fewer → all 48 split as evenly as
+  // possible (sizes differ by at most one, the remainder getting one extra).
+  const idx = members.map((_,i)=>i);
+  const cap = members.map(()=>4);
+  if (N <= 12) {
+    const base = Math.floor(48/N);
+    members.forEach((_,i)=>cap[i]=base);
+    shuffle(idx).slice(0, 48 - base*N).forEach(i => cap[i]++);
   }
+
+  const hand = members.map(()=>[]);
+  const has  = members.map(()=>new Set());
+  const total = members.map(()=>0), eliteCnt = members.map(()=>0), esCnt = members.map(()=>0);
+  const place = (i, id) => { hand[i].push(id); has[i].add(id); total[i]+=strength(id);
+    if(cls(id)===0) eliteCnt[i]++; if(cls(id)<=1) esCnt[i]++; };
+  const pickMin = (key) => {                          // roomy member with the smallest key, ties random
+    let best=-1; for(const i of shuffle(idx)){ if(hand[i].length>=cap[i]) continue;
+      if(best===-1 || key(i)<key(best)) best=i; } return best;
+  };
+
+  // Priority 1: spread elite as evenly as possible (each elite to whoever holds the fewest so far).
+  shuffle(elite).forEach(id => place(pickMin(i=>eliteCnt[i]), id));
+  // Priority 2: compensation, handing strong to whoever has the lowest elite + strong count so far.
+  shuffle(strong).forEach(id => place(pickMin(i=>esCnt[i]), id));
+
+  // Fill the rest from mid + underdog (plus duplicates above twelve, kept outside the top 24).
+  // Priority 3 seed: hand the strongest still-free team to the currently weakest squad with room.
+  const pool = [...mid, ...under];
+  const slotsLeft = members.reduce((s,_,i)=>s+(cap[i]-hand[i].length),0);
+  if (N > 12) { const rota = shuffle([...mid, ...under]); let r=0;
+    while (pool.length < slotsLeft) pool.push(rota[r++ % rota.length]); }
+  pool.sort((a,b)=>strength(b)-strength(a));
+  const leftover = [];
+  for (const id of pool) {
+    let best = -1;
+    for (const i of shuffle(idx)) { if(hand[i].length>=cap[i] || has[i].has(id)) continue;
+      if(best===-1 || total[i]<total[best]) best=i; }
+    if (best !== -1) place(best, id); else leftover.push(id);
+  }
+  // Any duplicate with no roomy taker (everyone with a spare slot already holds it) lands by swapping
+  // a mid/underdog team out of a full member to a roomy one. Only mid/underdog moves, so elite and
+  // elite+strong balance are never disturbed.
+  for (const X of leftover) {
+    let P = idx.find(i => hand[i].length<cap[i] && !has[i].has(X));
+    if (P === undefined) P = idx.find(i => hand[i].length<cap[i]);
+    for (const d of idx) {
+      if (d===P || hand[d].length<cap[d] || has[d].has(X)) continue;
+      const zi = hand[d].findIndex(z => cls(z)===2 && z!==X && !has[P].has(z));
+      if (zi === -1) continue;
+      const Z = hand[d][zi];
+      hand[d][zi]=X; has[d].delete(Z); has[d].add(X); total[d]+=strength(X)-strength(Z);
+      place(P, Z); break;
+    }
+  }
+
+  // Priority 3 refine: same-class pair swaps (elite↔elite, strong↔strong, other↔other) that pull the
+  // squad-strength totals together. Same class keeps the elite and elite+strong counts untouched.
+  const sumT = total.reduce((a,b)=>a+b,0), mean = sumT/N, dev = v => (v-mean)*(v-mean);
+  for (let pass=0; pass<300; pass++) {
+    let improved=false; const ord = shuffle(idx);
+    for (const i of ord) for (const j of ord) {
+      if (i>=j) continue;
+      for (let x=0;x<hand[i].length;x++) for (let y=0;y<hand[j].length;y++) {
+        const a=hand[i][x], b=hand[j][y];
+        if (a===b || cls(a)!==cls(b) || has[i].has(b) || has[j].has(a)) continue;
+        const ni=total[i]-strength(a)+strength(b), nj=total[j]-strength(b)+strength(a);
+        if (dev(ni)+dev(nj) < dev(total[i])+dev(total[j]) - 1e-9) {
+          hand[i][x]=b; hand[j][y]=a; has[i].delete(a); has[i].add(b); has[j].delete(b); has[j].add(a);
+          total[i]=ni; total[j]=nj; improved=true;
+        }
+      }
+    }
+    if (!improved) break;
+  }
+
+  members.forEach((m,i)=>{ alloc[m.id]=hand[i]; });
   return alloc;
 };
 
@@ -340,7 +412,7 @@ function Home({ onCreate, onJoin, onResume, lastCode }){
       </div>
       <div className="how">
         <Step n="1" t="Add your group" d="Type in up to 100 names — the whole group, wherever they are."/>
-        <Step n="2" t="Share out all 48" d="Every team goes to someone. Sixteen members means three each; fewer means more each; more means teams get shared."/>
+        <Step n="2" t="Share out all 48" d="Every team goes to someone, and squads are balanced to be about equally strong. Twelve members means four each; fewer means more each; more means some teams get shared."/>
         <Step n="3" t="Climb the table" d="One code lets anyone follow the group standings, predict games and track the pot."/>
       </div>
     </div>
@@ -420,9 +492,9 @@ function Create({ back, onDone }){
       )}
       {people.length>0 && <div className="chips">{people.map(p=>(<span key={p.id} className="chip">{p.name}<button onClick={()=>remove(p.id)}><X size={13}/></button></span>))}</div>}
       {people.length>=2 && <p className="hint"><Info size={13}/> {
-        people.length<16 ? `All 48 teams get shared out, so each member holds about ${perPerson} teams, with no duplicates.`
-        : people.length===16 ? "The sweet spot: all 48 teams, exactly three each, no duplicates."
-        : "Everyone gets three teams and all 48 are covered, so the popular sides will be shared by a few people."}</p>}
+        people.length<12 ? `All 48 teams get shared out with no duplicates, so each member holds about ${perPerson}, everyone on at least four, with squads balanced to be about equally strong.`
+        : people.length===12 ? "The sweet spot: all 48 teams, exactly four each, no duplicates, with squads balanced to be about equally strong."
+        : "Everyone holds four teams and all 48 are covered. Squads are balanced to be about equally strong, sharing the elite and strong sides out evenly first, so a few teams get held by two or more people."}</p>}
       <label className="field-lbl">Choose a group code <span className="muted">(everyone enters this)</span></label>
       <input className="input code-field display" placeholder="e.g. WORLDCUP26" value={code} maxLength={10}
         onChange={e=>{ setCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g,"").slice(0,10)); setErr(""); }}/>
@@ -726,7 +798,7 @@ function SquadsTab({ standings, titles, anyPlayed, teamHolders, openCard, setOpe
   const alpha = [...standings].sort((a,b)=>a.name.localeCompare(b.name));
   const hasDupes = Object.values(teamHolders||{}).some(c=>c>1);
   return (<div className="squads">
-    {hasDupes && <p className="hint"><Info size={13}/> With more than 16 members, every team is still allocated and the popular sides are shared. A <span className="t-share inline">×N</span> tag shows how many members hold that team.</p>}
+    {hasDupes && <p className="hint"><Info size={13}/> With more than 12 members, every team is still allocated and squads are balanced to be about equally strong, sharing the elite and strong sides out evenly first, so some teams get held by more than one member. A <span className="t-share inline">×N</span> tag shows how many members hold that team.</p>}
     {alpha.map(s=>(
     <Card key={s.id} s={s} titles={titles[s.id]||[]} anyPlayed={anyPlayed} teamHolders={teamHolders} open={openCard===s.id} onToggle={()=>setOpenCard(o=>o===s.id?null:s.id)}/>
   ))}</div>);
