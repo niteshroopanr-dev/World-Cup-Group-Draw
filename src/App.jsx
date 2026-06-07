@@ -1405,11 +1405,14 @@ function StyleBlock(){ return <style>{CSS}</style>; }
 const CSS = `
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;margin:0;padding:0}
 :root{--pitch:#0e7d44;--pitch2:#074a28;--night:#04140c;--gold:#ffd23f;--gold2:#f4b400;--cream:#fbf7ec;--ink:#06160e;--line:rgba(255,255,255,.13);--card:#0d2a1c;--t1:#ffd23f;--t2:#39a9db;--t3:#5cc46b;--t4:#ff7a59;}
-.wc-root{font-family:'Outfit',system-ui,sans-serif;color:var(--cream);min-height:100vh;position:relative;overflow-x:hidden;background:radial-gradient(125% 80% at 50% -12%,#15a05a 0%,#0a5c34 42%,#04140c 100%);}
+/* min-height (never a fixed height) so the page grows with content and the document is the one scroll
+   surface; overflow-x:clip stops sideways overflow WITHOUT turning the wrapper into a scroll container
+   (unlike overflow-x:hidden, which would force overflow-y to auto and trap the scroll). */
+.wc-root{font-family:'Outfit',system-ui,sans-serif;color:var(--cream);min-height:100vh;min-height:100dvh;position:relative;overflow-x:clip;background:radial-gradient(125% 80% at 50% -12%,#15a05a 0%,#0a5c34 42%,#04140c 100%);}
 .wc-root:before{content:"";position:fixed;inset:0;pointer-events:none;opacity:.05;z-index:0;background-image:repeating-linear-gradient(0deg,#fff 0 1px,transparent 1px 70px),repeating-linear-gradient(90deg,#fff 0 1px,transparent 1px 70px);}
 .display{font-family:'Anton',sans-serif;letter-spacing:.015em;text-transform:uppercase;line-height:.96;font-weight:400}
 .gold{color:var(--gold)}.muted{color:rgba(251,247,236,.55);font-weight:500}.center{text-align:center}
-.wrap{max-width:680px;margin:0 auto;padding:20px 16px 130px;position:relative;z-index:1}
+.wrap{max-width:680px;margin:0 auto;padding:20px 16px calc(130px + env(safe-area-inset-bottom,0px));position:relative;z-index:1}
 .foot{position:relative;z-index:1;text-align:center;font-size:11px;color:rgba(251,247,236,.45);padding:13px 16px 26px;max-width:680px;margin:-110px auto 0;border-top:1px solid var(--line)}
 .foot-note{line-height:1.5}
 .foot-credit{display:inline-flex;align-items:center;gap:7px;margin-top:8px;font-size:12px;font-weight:600;letter-spacing:.02em;color:rgba(251,247,236,.5);line-height:1}
@@ -1501,7 +1504,7 @@ const CSS = `
 @keyframes cardin{from{opacity:0;transform:translateY(14px) scale(.97)}to{opacity:1;transform:none}}
 .cer-name{font-size:clamp(30px,8vw,46px);color:var(--cream);text-align:center;line-height:1}
 .cer-sub{font-size:13px;color:rgba(251,247,236,.6);margin:5px 0 16px;text-align:center}
-.cer-teams{display:flex;flex-direction:column;gap:9px;max-height:46vh;overflow-y:auto;padding:2px}
+.cer-teams{display:flex;flex-direction:column;gap:9px;max-height:46vh;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;padding:2px}
 .cer-team{display:flex;align-items:center;gap:12px;background:rgba(255,255,255,.05);border:1px solid var(--line);border-left:4px solid rgba(255,210,63,.5);border-radius:13px;padding:11px 13px}
 .cer-team.tier1{border-left-color:var(--t1)}.cer-team.tier2{border-left-color:var(--t2)}.cer-team.tier3{border-left-color:var(--t3)}.cer-team.tier4{border-left-color:var(--t4)}
 .cer-team.hidden{justify-content:center;border-style:dashed;border-left-width:1px;color:rgba(251,247,236,.3);min-height:46px}
@@ -1632,7 +1635,7 @@ const CSS = `
 .call-pick{color:rgba(251,247,236,.5);font-weight:600;flex:none}
 .call.hit .call-pick{color:#7be08c}.call.miss .call-pick{color:#ff9b7d}
 .call.hit .call-name{color:var(--cream)}
-.grp-sel{display:flex;gap:6px;overflow-x:auto;padding-bottom:6px;margin-bottom:6px;-webkit-overflow-scrolling:touch}
+.grp-sel{display:flex;gap:6px;overflow-x:auto;padding-bottom:6px;margin-bottom:6px;-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
 .grp-chip{flex:none;width:38px;height:38px;border-radius:11px;background:rgba(255,255,255,.06);border:1px solid var(--line);color:rgba(251,247,236,.7);font-family:'Anton';font-size:16px;cursor:pointer}
 .grp-chip.on{background:linear-gradient(180deg,#ffe066,#f4b400);color:#3a2a00;border-color:transparent}
 .grp-chip.ko{width:auto;padding:0 13px;font-family:'Outfit';font-size:12px;font-weight:700;letter-spacing:.02em}
@@ -1678,11 +1681,11 @@ const CSS = `
 @keyframes fall{to{transform:translateY(110vh) rotate(540deg);opacity:0}}
 /* creator setup: count pop-up + hand-pick screen */
 .modal-overlay{position:fixed;inset:0;z-index:60;background:rgba(4,20,12,.74);backdrop-filter:blur(3px);display:flex;align-items:center;justify-content:center;padding:20px}
-.modal-card{background:var(--card);border:1.5px solid rgba(255,210,63,.28);border-radius:20px;padding:22px 18px;max-width:440px;width:100%;max-height:88vh;overflow:auto}
+.modal-card{background:var(--card);border:1.5px solid rgba(255,210,63,.28);border-radius:20px;padding:22px 18px;max-width:440px;width:100%;max-height:88vh;overflow:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
 .modal-h{font-family:'Anton',sans-serif;text-transform:uppercase;letter-spacing:.03em;font-size:21px;color:var(--cream)}
 .modal-split{font-weight:700;color:var(--gold);font-size:15.5px;margin:12px 0;line-height:1.4}
 .modal-actions{display:flex;flex-direction:column;gap:10px;margin-top:18px}
-.choose-list{margin:14px 0 4px;max-height:46vh;overflow:auto}
+.choose-list{margin:14px 0 4px;max-height:46vh;overflow:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
 .choose-name{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;padding:11px 13px;border:1.5px solid var(--line);border-radius:12px;margin-bottom:8px;cursor:pointer;color:var(--cream);font-family:'Outfit';font-weight:600;font-size:14.5px;background:rgba(255,255,255,.04);text-align:left}
 .choose-name.on{border-color:var(--gold);background:rgba(255,210,63,.12)}
 .choose-name svg{color:var(--gold);flex:none}
