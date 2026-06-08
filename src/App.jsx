@@ -284,6 +284,24 @@ const store = {
       return { code:g.code, name:g.name, members:g.members, alloc:g.alloc, pool:g.pool||{}, results };
     }catch{ return null; }
   },
+  // One parallel wave: the group row, its results and its predictions fetched together, so a user far
+  // from Sydney pays the round-trip latency once rather than three times stacked. Output shapes match
+  // getGroup + getPreds exactly, so callers fold the result into state unchanged.
+  async loadBundle(code){
+    if(!supabase) return { group:null, preds:{} };
+    try{
+      const [gQ, rQ, pQ] = await Promise.all([
+        supabase.from("groups").select("*").eq("code",code).maybeSingle(),
+        supabase.from("results").select("fixture,h,a").eq("code",code),
+        supabase.from("predictions").select("member,fixture,pick").eq("code",code),
+      ]);
+      if(gQ.error || !gQ.data) return { group:null, preds:{} };
+      const g = gQ.data;
+      const results = {}; (rQ.data||[]).forEach(r=>{ results[r.fixture]={h:r.h,a:r.a}; });
+      const preds   = {}; (pQ.data||[]).forEach(r=>{ (preds[r.member]=preds[r.member]||{})[r.fixture]=r.pick; });
+      return { group:{ code:g.code, name:g.name, members:g.members, alloc:g.alloc, pool:g.pool||{}, results }, preds };
+    }catch{ return { group:null, preds:{} }; }
+  },
   // Upserts only the groups row (code, name, members, alloc, pool). Results are per-row, kept apart.
   async setGroup(code,g){
     if(!supabase) return;
@@ -313,6 +331,18 @@ const store = {
   async clearPick(code,member,fixture){
     if(!supabase) return;
     try{ await supabase.from("predictions").delete().eq("code",code).eq("member",member).eq("fixture",fixture); }catch(e){}
+  },
+
+  /* ---- Instant-render cache (stale-while-revalidate), keyed by group code ---- */
+  // First paint of a revisited group comes from here, so users far from Sydney see the leaderboard
+  // without waiting on the round-trip. It is only ever a placeholder: every open revalidates against
+  // the server in the background and the fresh data overwrites it, so the cache can never override
+  // newer server data. Every read and write is wrapped so a storage fault can never break the app.
+  readCache(code){
+    try{ const raw = localStorage.getItem("wcfd:cache:"+code); return raw ? JSON.parse(raw) : null; }catch{ return null; }
+  },
+  writeCache(code, group, preds){
+    try{ localStorage.setItem("wcfd:cache:"+code, JSON.stringify({ group, preds: preds||{} })); }catch(e){}
   },
 
   /* ---- DEVICE half → localStorage (window.storage shim), unchanged ---- */
@@ -417,7 +447,23 @@ export default function WorldCupFamilyDraw(){
   }, [group?.code]);
 
   const fire = () => setBoom(Date.now());
-  const openGroup = async (g) => { setGroup(g); setView("group"); store.setLast(g.code); setLastCode(g.code); setPreds(await store.getPreds(g.code)); setMine(await store.getMine(g.code)); setIsCreator(await store.isCreator(g.code)); };
+  // Open a group with instant paint + background revalidate. We render the cached leaderboard (or the
+  // group object we were handed) straight away so a distant user waits on nothing, then fetch fresh
+  // data in one parallel wave and let it win. `fresh` lets a caller that already fetched the bundle
+  // (Join/Resume cold path) hand it in so we never fetch twice.
+  const openGroup = async (g, fresh) => {
+    const code = g.code;
+    const cached = store.readCache(code);
+    setGroup(cached?.group || g);
+    setPreds(cached?.preds || {});
+    setView("group"); store.setLast(code); setLastCode(code);
+    setMine(await store.getMine(code)); setIsCreator(await store.isCreator(code));
+    const bundle = fresh || await store.loadBundle(code);
+    if(bundle.group){
+      setGroup(bundle.group); setPreds(bundle.preds||{});   // fresh server data always wins over the cache
+      store.writeCache(code, bundle.group, bundle.preds||{});
+    }
+  };
   const saveGroup = async (g) => { setGroup(g); await store.setGroup(g.code, g); };
   // Per-row writes: a score or a pick touches one row, not the whole group/preds blob.
   const saveResult = async (fxId, h, a) => {
@@ -435,7 +481,12 @@ export default function WorldCupFamilyDraw(){
       <StyleBlock/>
       {boom ? <Confetti key={boom} done={()=>setBoom(0)}/> : null}
       {view==="home" && <Home lastCode={lastCode} onCreate={()=>setView("create")} onJoin={()=>{ setJoinCode(""); setView("join"); }}
-        onResume={async()=>{ const g=await store.getGroup(lastCode); if(g) openGroup(g); else setLastCode(null); }}/>}
+        onResume={async()=>{
+          const cached = store.readCache(lastCode);
+          if(cached?.group){ openGroup(cached.group); return; }                                  // warm: instant from cache, revalidate in background
+          const b = await store.loadBundle(lastCode);                                            // cold: confirm it still exists and open in one wave
+          if(b.group) openGroup(b.group, b); else setLastCode(null);
+        }}/>}
       {view==="create" && <Create back={()=>setView("home")}
         onDone={async(g)=>{ await store.setGroup(g.code,g); await store.markCreator(g.code); setGroup(g); setIsCreator(true); setView("drawing"); }}/>}
       {view==="join" && <Join back={()=>setView("home")} onFound={openGroup} initialCode={joinCode}/>}
@@ -672,8 +723,11 @@ function Setup({ members, onBack, finish }){
 function Join({ back, onFound, initialCode }){
   const [code,setCode]=useState(initialCode || ""); const [err,setErr]=useState(""); const [busy,setBusy]=useState(false);
   const go = async () => { const c=code.trim().toUpperCase(); if(c.length<4){setErr("Enter the group code you were given.");return;}
-    setBusy(true); setErr(""); const g=await store.getGroup(c); setBusy(false);
-    if(g) onFound(g); else setErr("No group found for that code. Double-check the characters?"); };
+    setErr("");
+    const cached = store.readCache(c);
+    if(cached?.group){ onFound(cached.group); return; }                          // warm: open instantly from cache, revalidate in background
+    setBusy(true); const b=await store.loadBundle(c); setBusy(false);            // cold: one parallel wave for group, results and predictions
+    if(b.group) onFound(b.group, b); else setErr("No group found for that code. Double-check the characters?"); };
   return (
     <div className="wrap">
       <TopBar back={back} title="View a team"/>
