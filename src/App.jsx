@@ -960,7 +960,7 @@ function GroupView({ group, preds, onPick, mine, toggleMine, saveGroup, saveResu
       {tab==="ranks" && <RanksTab standings={standings} titles={titles} anyPlayed={anyPlayed} pool={group.pool} project={project}/>}
       {tab==="squads" && <SquadsTab standings={standings} titles={titles} anyPlayed={anyPlayed} teamHolders={teamHolders} openCard={openCard} setOpenCard={setOpenCard}/>}
       {tab==="predict" && <PredictTab group={group} preds={preds} onPick={onPick} mine={mine} toggleMine={toggleMine} now={now} results={results} matches={matches}/>}
-      {tab==="cup" && <CupTab group={group} setResult={setResult} nextFx={nextFx} results={results} matches={matches} knockouts={knockouts}/>}
+      {tab==="cup" && <CupTab group={group} setResult={setResult} nextFx={nextFx} results={results} matches={matches} knockouts={knockouts} now={now}/>}
       {tab==="pot" && <PotTab group={group} standings={standings} saveGroup={saveGroup} project={project} anyPlayed={anyPlayed}/>}
     </div>
   );
@@ -1108,7 +1108,7 @@ function PredictTab({ group, preds, onPick, mine, toggleMine, now, results, matc
   };
 
   const anyResult = FIXTURES.some(fx=>results[fx.id]);
-  const upcoming = FIXTURES.filter(fx=> now < koOf(fx,matches) && !results[fx.id]);
+  const upcoming = FIXTURES.filter(fx=> now < koOf(fx,matches) && !results[fx.id]).sort((a,b)=>koOf(a,matches)-koOf(b,matches));
   const reveal = FIXTURES.filter(fx=> now>=koOf(fx,matches) || results[fx.id]).sort((a,b)=>koOf(b,matches)-koOf(a,matches));
   const pickedCount = (id) => upcoming.filter(fx=>(preds[id]||{})[fx.id]).length;
   const upcomingHasChances = upcoming.some(fx=>chancesFor(fx,matches));
@@ -1235,21 +1235,59 @@ function PredictTab({ group, preds, onPick, mine, toggleMine, now, results, matc
 }
 
 /* ------------------------------- CUP ------------------------------ */
-function CupTab({ group, setResult, nextFx, results, matches, knockouts }){
+// Read-only match card for the combined "All upcoming" list: same layout as the group fixtures and
+// the predict rows (teams, group, local kickoff, chances line), but with no score entry.
+function UpcomingFixture({ fx, matches }){
+  const t = useT();
+  return (
+    <div className="fx">
+      <div className="fx-top"><span className="fx-grp">{t("common.grpX",{g:fx.grp})}</span><span className="fx-date">{fmtKickoff(koOf(fx,matches))}</span></div>
+      <div className="fx-main">
+        <div className="fx-team"><span className="flag">{TEAMS[fx.home].f}</span><span>{TEAMS[fx.home].n}</span></div>
+        <span className="fx-mid">{t("common.versus")}</span>
+        <div className="fx-team r"><span>{TEAMS[fx.away].n}</span><span className="flag">{TEAMS[fx.away].f}</span></div>
+      </div>
+      <Chances fx={fx} matches={matches}/>
+    </div>
+  );
+}
+function CupTab({ group, setResult, nextFx, results, matches, knockouts, now }){
   const t = useT();
   const [sel, setSel] = useState(()=> nextFx ? nextFx.grp : "A");
   const isKO = sel==="KO";
-  const table = isKO ? [] : groupStandings(sel, results);
-  const fixtures = isKO ? [] : FIXTURES.filter(fx=>fx.grp===sel).sort((a,b)=>koOf(a,matches)-koOf(b,matches));
+  const isUp = sel==="UP";
+  const table = (isKO||isUp) ? [] : groupStandings(sel, results);
+  const fixtures = (isKO||isUp) ? [] : FIXTURES.filter(fx=>fx.grp===sel).sort((a,b)=>koOf(a,matches)-koOf(b,matches));
+  // Combined "All upcoming": every group + knockout match not yet kicked off, sorted by real kickoff
+  // soonest first. koOf falls back to the placeholder time when the feed has no real kickoff yet;
+  // knockout rows without a valid kickoff (teams/date unpublished) are left out until they have one.
+  const upcomingAll = useMemo(()=>{
+    const items = [];
+    for(const fx of FIXTURES){ if(now < koOf(fx, matches)) items.push({ kind:"grp", ko:koOf(fx, matches), fx }); }
+    for(const row of Object.values(knockouts||{})){ const k = row.kickoff ? Date.parse(row.kickoff) : NaN; if(!Number.isNaN(k) && now < k) items.push({ kind:"ko", ko:k, row }); }
+    return items.sort((a,b)=> a.ko - b.ko);
+  }, [now, matches, knockouts]);
   return (
     <div>
-      <div className="section-head"><span className="display sh-title">{t("cup.title")}</span><span className="sh-sub">{isKO?t("cup.subKo"):t("cup.subGroups")}</span></div>
+      <div className="section-head"><span className="display sh-title">{t("cup.title")}</span><span className="sh-sub">{isUp?t("cup.subUpcoming"):isKO?t("cup.subKo"):t("cup.subGroups")}</span></div>
       <div className="grp-sel">
+        <button className={"grp-chip up"+(isUp?" on":"")} onClick={()=>setSel("UP")}>{t("cup.allUpcoming")}</button>
         {LETTERS.map(L=>(<button key={L} className={"grp-chip"+(sel===L?" on":"")} onClick={()=>setSel(L)}>{L}</button>))}
         <button className={"grp-chip ko"+(isKO?" on":"")} onClick={()=>setSel("KO")}>{t("cup.knockouts")}</button>
       </div>
 
-      {isKO ? <KnockoutList knockouts={knockouts}/> : <>
+      {isUp ? (
+        <div>
+          {upcomingAll.length===0
+            ? <p className="empty-note"><Sparkles size={15}/> {t("cup.upcomingEmpty")}</p>
+            : <div className="fixtures">
+                {upcomingAll.map(it => it.kind==="ko"
+                  ? <KoMatch key={"ko"+it.row.id} row={it.row}/>
+                  : <UpcomingFixture key={it.fx.id} fx={it.fx} matches={matches}/>)}
+              </div>}
+          <p className="hint"><Info size={13}/> {t("cup.upcomingHint")}</p>
+        </div>
+      ) : isKO ? <KnockoutList knockouts={knockouts}/> : <>
       <div className="std-card">
         <div className="std-title">{t("common.groupX",{g:sel})}</div>
         <div className="std-row std-h"><span className="std-pos"></span><span className="std-team">{t("cup.team")}</span><span>{t("abbr.p")}</span><span>{t("abbr.w")}</span><span>{t("abbr.d")}</span><span>{t("abbr.l")}</span><span>{t("abbr.gd")}</span><span className="std-pts">{t("abbr.pts")}</span></div>
@@ -1440,10 +1478,12 @@ function LangPicker({ className }){
   return (
     <label className={"lang-picker"+(className?" "+className:"")} aria-label={t("lang.choose")}>
       <Globe size={15}/>
+      <span className="lang-name">{(langs.find(l=>l.code===lang)||{}).label || lang}</span>
+      <ChevronDown size={14} className="lang-caret"/>
+      {/* Transparent select stretched over the whole control, so a tap anywhere (globe, name or arrow) opens it. */}
       <select value={lang} onChange={e=>setLang(e.target.value)}>
         {langs.map(l=>(<option key={l.code} value={l.code}>{l.label}</option>))}
       </select>
-      <ChevronDown size={14} className="lang-caret"/>
     </label>
   );
 }
@@ -1552,10 +1592,14 @@ const CSS = `
 .foot-by{line-height:1}
 .foot-logo{height:26px;width:auto;display:block}
 /* Language picker (globe + native-name dropdown): on the landing page and again in the footer */
-.lang-picker{display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,.08);border:1px solid var(--line);border-radius:11px;padding:6px 9px;color:var(--cream);cursor:pointer}
+.lang-picker{position:relative;display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,.08);border:1px solid var(--line);border-radius:11px;padding:6px 9px;color:var(--cream);cursor:pointer}
 .lang-picker svg{flex:none;opacity:.85}
 .lang-picker .lang-caret{opacity:.6;margin-left:-3px}
-.lang-picker select{appearance:none;-webkit-appearance:none;background:transparent;border:none;color:var(--cream);font-family:'Outfit';font-weight:600;font-size:13px;padding:0 2px;cursor:pointer;outline:none}
+.lang-name{font-family:'Outfit';font-weight:600;font-size:13px;color:var(--cream);padding:0 2px}
+/* The native select is stretched transparently across the whole control and sits on top, so a tap or
+   click anywhere (globe, language name or arrow) opens the dropdown. The globe, name and arrow show
+   through it; selection and the native option list keep working exactly as before. */
+.lang-picker select{position:absolute;inset:0;width:100%;height:100%;margin:0;padding:0;border:none;opacity:0;cursor:pointer;appearance:none;-webkit-appearance:none;outline:none}
 .lang-picker select option{color:#06160e}
 .home-lang{display:flex;justify-content:flex-end;margin-bottom:2px}
 .foot-lang{margin-bottom:12px}
@@ -1782,7 +1826,7 @@ const CSS = `
 .grp-sel{display:flex;gap:6px;overflow-x:auto;padding-bottom:6px;margin-bottom:6px;-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
 .grp-chip{flex:none;width:38px;height:38px;border-radius:11px;background:rgba(255,255,255,.06);border:1px solid var(--line);color:rgba(251,247,236,.7);font-family:'Anton';font-size:16px;cursor:pointer}
 .grp-chip.on{background:linear-gradient(180deg,#ffe066,#f4b400);color:#3a2a00;border-color:transparent}
-.grp-chip.ko{width:auto;padding:0 13px;font-family:'Outfit';font-size:12px;font-weight:700;letter-spacing:.02em}
+.grp-chip.ko,.grp-chip.up{width:auto;padding:0 13px;font-family:'Outfit';font-size:12px;font-weight:700;letter-spacing:.02em}
 .ko-tbd{font-weight:600;font-size:12.5px;color:rgba(251,247,236,.55)}
 .std-card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:12px 13px;margin-top:4px}
 .std-title{font-family:'Anton',sans-serif;text-transform:uppercase;font-size:17px;color:var(--gold);margin-bottom:8px}

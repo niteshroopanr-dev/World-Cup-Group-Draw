@@ -1,0 +1,366 @@
+{
+  "es": {
+    "home.titleL1": {
+      "from": "El World Cup",
+      "to": "El Mundial"
+    },
+    "create.defaultName": {
+      "from": "Nuestro sorteo del World Cup",
+      "to": "Nuestro sorteo del Mundial"
+    },
+    "create.namePlaceholder": {
+      "from": "p. ej. El World Cup de la Banda",
+      "to": "p. ej. El Mundial de la Banda"
+    },
+    "share.title": {
+      "from": "World Cup: Sorteo de grupos",
+      "to": "Sorteo de grupos del Mundial"
+    },
+    "share.msgIntro": {
+      "from": "Te invitamos a nuestro sorteo del World Cup. Un poco de diversión para el torneo: te toca un grupo de selecciones al azar para seguir, y luego competimos todos en una clasificación compartida. Toca el enlace para entrar, tu código ya va cargado.",
+      "to": "Te invitamos a nuestro sorteo del Mundial. Un poco de diversión para el torneo: te toca un grupo de selecciones al azar para seguir, y luego competimos todos en una clasificación compartida. Toca el enlace para entrar, tu código ya va cargado."
+    },
+    "share.msgOutro": {
+      "from": "Hecho por ProfitPulse. Cada selección de este World Cup va a por el trofeo; nosotros ayudamos a los dueños de negocios a ir a por el suyo. https://profit-pulse.com.au",
+      "to": "Hecho por ProfitPulse. Cada selección de este Mundial va a por el trofeo; nosotros ayudamos a los dueños de negocios a ir a por el suyo. https://profit-pulse.com.au"
+    },
+    "pot.championT": {
+      "from": "Apuesta por el Campeón",
+      "to": "Apoya al Campeón"
+    },
+    "home.lede": {
+      "from": "Pon los nombres de todos y la web reparte países al azar entre cada miembro del grupo. Luego mira cómo la clasificación se pelea hasta la final. Pensado para grupos unidos repartidos por todo el mundo.",
+      "to": "Pon los nombres de todos y la web reparte países al azar entre cada miembro del grupo. Luego mira cómo la clasificación pelea hasta la final. Pensado para grupos conectados repartidos por todo el mundo."
+    },
+    "predict.predictingFor": {
+      "from": "Estás pronosticando por",
+      "to": "Estás pronosticando para"
+    },
+    "banner.nextKickoff": {
+      "from": "Próximo saque",
+      "to": "Próximo saque inicial"
+    },
+    "pot.reserve": {
+      "from": "{money} guardado para quien apostó por el Campeón, se decide en la Final",
+      "to": "{money} guardado para quien apoyó al Campeón, se decide en la Final"
+    }
+  },
+  "fr": {
+    "home.titleL1": {
+      "from": "Le World Cup",
+      "to": "La Coupe du monde"
+    },
+    "create.defaultName": {
+      "from": "Notre tirage du World Cup",
+      "to": "Notre tirage de la Coupe du monde"
+    },
+    "create.namePlaceholder": {
+      "from": "ex. Le World Cup de la bande",
+      "to": "ex. La Coupe du monde de la bande"
+    },
+    "share.title": {
+      "from": "World Cup : Tirage des groupes",
+      "to": "Tirage de groupes de la Coupe du monde"
+    },
+    "share.msgIntro": {
+      "from": "Tu es invité à notre tirage du World Cup. Un peu de fun pour le tournoi : tu reçois un lot d'équipes nationales au hasard à suivre, puis on se livre tous bataille sur un classement commun. Touche le lien pour entrer, ton code est déjà chargé.",
+      "to": "Tu es invité à notre tirage de la Coupe du monde. Un peu de fun pour le tournoi : tu reçois un lot d'équipes nationales au hasard à suivre, puis on se livre tous bataille sur un classement commun. Appuie sur le lien pour entrer, ton code est déjà chargé."
+    },
+    "share.msgOutro": {
+      "from": "Réalisé par ProfitPulse. Chaque équipe de ce World Cup court après le trophée ; nous aidons les chefs d'entreprise à courir après le leur. https://profit-pulse.com.au",
+      "to": "Réalisé par ProfitPulse. Chaque équipe de cette Coupe du monde court après le trophée ; nous aidons les chefs d'entreprise à courir après le leur. https://profit-pulse.com.au"
+    },
+    "pot.championT": {
+      "from": "Mise sur le Champion",
+      "to": "Soutiens le Champion"
+    },
+    "home.lede": {
+      "from": "Mets les noms de tout le monde, le site attribue les pays au hasard à chaque membre du groupe. Ensuite, regarde le classement se livrer bataille jusqu'à la finale. Pensé pour les groupes soudés éparpillés aux quatre coins du monde.",
+      "to": "Saisis les noms de tout le monde, le site attribue les pays au hasard à chaque membre du groupe. Ensuite, regarde le classement se battre jusqu'à la finale. Conçu pour les groupes connectés éparpillés dans le monde entier."
+    },
+    "cer.modeLede": {
+      "from": "Rassemble tout le monde devant un écran, choisis un style, puis fais défiler pour révéler qui obtient quoi.",
+      "to": "Rassemble tout le monde devant un écran, choisis un style, puis appuie pour révéler qui obtient qui."
+    },
+    "banner.liveNowish": {
+      "from": "· bientôt en direct",
+      "to": "· en direct, à peu près"
+    },
+    "pot.reserve": {
+      "from": "{money} gardés pour celui qui a misé sur le Champion, décidé en Finale",
+      "to": "{money} gardés pour celui qui a soutenu le Champion, décidé en Finale"
+    }
+  },
+  "it": {
+    "home.titleL1": {
+      "from": "Il World Cup",
+      "to": "Il Mondiale"
+    },
+    "create.defaultName": {
+      "from": "Il nostro sorteggio del World Cup",
+      "to": "Il nostro sorteggio del Mondiale"
+    },
+    "create.namePlaceholder": {
+      "from": "es. Il World Cup della Compagnia",
+      "to": "es. Il Mondiale della compagnia"
+    },
+    "share.title": {
+      "from": "World Cup: Sorteggio dei gironi",
+      "to": "Sorteggio dei gironi del Mondiale"
+    },
+    "share.msgIntro": {
+      "from": "Sei invitato al nostro sorteggio del World Cup. Un po' di divertimento per il torneo: ti tocca un set di nazionali a caso da seguire, poi ce le diamo tutti su una classifica condivisa. Tocca il link per entrare, il tuo codice è già caricato.",
+      "to": "Sei invitato al nostro sorteggio del Mondiale. Un po’ di divertimento per il torneo: ti tocca un set di nazionali a caso da seguire, poi ce la giochiamo tutti su una classifica condivisa. Tocca il link per entrare, il tuo codice è già caricato."
+    },
+    "share.msgOutro": {
+      "from": "Realizzato da ProfitPulse. Ogni squadra di questo World Cup insegue il trofeo; noi aiutiamo i titolari d'azienda a inseguire il loro. https://profit-pulse.com.au",
+      "to": "Realizzato da ProfitPulse. Ogni squadra di questo Mondiale insegue il trofeo; noi aiutiamo i titolari d’azienda a inseguire il loro. https://profit-pulse.com.au"
+    },
+    "pot.championT": {
+      "from": "Punta sul Campione",
+      "to": "Sostieni il Campione"
+    },
+    "home.lede": {
+      "from": "Inserisci i nomi di tutti, il sito assegna i paesi a caso a ogni membro del gruppo. Poi guarda la classifica darsele di santa ragione fino alla finale. Pensato per gruppi affiatati sparsi per il mondo.",
+      "to": "Inserisci i nomi di tutti, il sito assegna i paesi a caso a ogni membro del gruppo. Poi guarda la classifica sfidarsi fino alla finale. Pensato per gruppi connessi sparsi per il mondo."
+    },
+    "cer.modeLede": {
+      "from": "Raduna tutti davanti a uno schermo, scegli uno stile, poi scorri per svelare chi prende chi.",
+      "to": "Raduna tutti davanti a uno schermo, scegli uno stile, poi tocca per svelare chi prende chi."
+    },
+    "cup.knockouts": {
+      "from": "Eliminazione",
+      "to": "Eliminazione diretta"
+    },
+    "pot.reserve": {
+      "from": "{money} tenuti per chi ha puntato sul Campione, si decide in Finale",
+      "to": "{money} tenuti per chi ha sostenuto il Campione, si decide in Finale"
+    }
+  },
+  "zh": {
+    "home.titleL1": {
+      "from": "World Cup",
+      "to": "世界杯"
+    },
+    "create.defaultName": {
+      "from": "我们的 World Cup 抽签",
+      "to": "我们的世界杯抽签"
+    },
+    "create.namePlaceholder": {
+      "from": "例如 兄弟连 World Cup",
+      "to": "例如 兄弟连世界杯"
+    },
+    "share.title": {
+      "from": "World Cup 小组抽签",
+      "to": "世界杯小组抽签"
+    },
+    "share.msgIntro": {
+      "from": "邀请你加入我们的 World Cup 抽签。给这届赛事添点乐子：你会随机分到一组国家队来关注，然后大家在一张共享积分榜上一较高下。点链接进来，你的代码已经填好了。",
+      "to": "邀请你加入我们的世界杯抽签。给这届赛事添点乐子：你会随机分到一组国家队来关注，然后大家在一张共享排行榜上一较高下。点链接进来，你的代码已经填好了。"
+    },
+    "share.msgOutro": {
+      "from": "由 ProfitPulse 打造。这届 World Cup 的每支球队都在追逐奖杯；我们帮企业主追逐他们的。https://profit-pulse.com.au",
+      "to": "由 ProfitPulse 打造。这届世界杯的每支球队都在追逐奖杯；我们帮企业主追逐他们的目标。https://profit-pulse.com.au"
+    },
+    "pot.championT": {
+      "from": "押注冠军",
+      "to": "支持冠军"
+    },
+    "home.lede": {
+      "from": "把大家的名字都输进来，网站会随机给每位成员分配国家。然后看着积分榜一路厮杀，直到决赛。专为散布在世界各地、却心连心的群组打造。",
+      "to": "把大家的名字都输进来，网站会随机给每位成员分配国家。然后看着排行榜一路竞争，直到决赛。专为散布在世界各地、仍保持联系的群组打造。"
+    },
+    "predict.predictingFor": {
+      "from": "你正在为谁预测",
+      "to": "你正在为以下成员预测"
+    },
+    "banner.liveNowish": {
+      "from": "· 即将开始",
+      "to": "· 正在直播中"
+    },
+    "banner.allIn": {
+      "from": "群组比赛已全部结束 🎉",
+      "to": "所有小组赛都结束了 🎉"
+    },
+    "cer.strongestPre": {
+      "from": "纸面上最强的阵容归",
+      "to": "纸面实力最强的阵容归"
+    },
+    "ko.qf": {
+      "from": "八强",
+      "to": "四分之一决赛"
+    },
+    "ko.r16": {
+      "from": "16 强",
+      "to": "16 强赛"
+    },
+    "ko.r32": {
+      "from": "32 强",
+      "to": "32 强赛"
+    },
+    "ko.tagThird": {
+      "from": "三四",
+      "to": "三四名"
+    },
+    "pot.championD": {
+      "from": "留出 20% 给拥有夺冠球队的人；其余按前 15% 的阶梯分配。",
+      "to": "留出 20% 给拥有冠军球队的人；其余按前 15% 的阶梯分配。"
+    },
+    "pot.reserve": {
+      "from": "{money} 留给押中冠军的人，决赛时揭晓",
+      "to": "{money} 留给支持冠军的人，决赛时揭晓"
+    },
+    "predict.tapHint": {
+      "from": "把你要替其下注的人都点上，包括没有手机的小朋友。一台设备可以装下好几个人的预测。",
+      "to": "把你要替其预测的人都点上，包括没有手机的小朋友。一台设备可以保存好几个人的预测。"
+    },
+    "squads.dupesPre": {
+      "from": "超过 12 名成员时，每支球队仍会全部分配，各阵容尽量分得实力相当，先把顶级和强队平均分开，所以有些球队会由不止一名成员持有。",
+      "to": "超过 12 名成员时，每支球队仍会全部分配，各阵容尽量分得实力相当，先把顶级和强队平均分开，所以有些球队会由不止一名成员持有。一个"
+    }
+  },
+  "hi": {
+    "home.titleL1": {
+      "from": "World Cup",
+      "to": "विश्व कप"
+    },
+    "create.defaultName": {
+      "from": "हमारा World Cup ड्रॉ",
+      "to": "हमारा विश्व कप ड्रॉ"
+    },
+    "create.namePlaceholder": {
+      "from": "जैसे यारों का World Cup",
+      "to": "जैसे यारों का विश्व कप"
+    },
+    "share.title": {
+      "from": "World Cup ग्रुप ड्रॉ",
+      "to": "विश्व कप ग्रुप ड्रॉ"
+    },
+    "share.msgIntro": {
+      "from": "तुम हमारे World Cup ड्रॉ में बुलाए गए हो। टूर्नामेंट के लिए थोड़ी मस्ती: तुम्हें फ़ॉलो करने के लिए रैंडम राष्ट्रीय टीमों का एक सेट मिलता है, फिर हम सब एक साझा लीडरबोर्ड पर भिड़ते हैं। अंदर आने के लिए लिंक टैप करो, तुम्हारा कोड पहले से भरा है।",
+      "to": "तुम्हें हमारे विश्व कप ड्रॉ में बुलाया गया है। टूर्नामेंट के लिए थोड़ी मस्ती: तुम्हें फ़ॉलो करने के लिए रैंडम राष्ट्रीय टीमों का एक सेट मिलता है, फिर हम सब एक साझा लीडरबोर्ड पर भिड़ते हैं। अंदर आने के लिए लिंक टैप करो, तुम्हारा कोड पहले से भरा है।"
+    },
+    "share.msgOutro": {
+      "from": "ProfitPulse ने बनाया। इस World Cup की हर टीम ट्रॉफ़ी के पीछे है; हम कारोबार के मालिकों को उनकी ट्रॉफ़ी के पीछे जाने में मदद करते हैं। https://profit-pulse.com.au",
+      "to": "ProfitPulse ने बनाया। इस विश्व कप की हर टीम ट्रॉफ़ी के पीछे है; हम कारोबार के मालिकों को अपना लक्ष्य हासिल करने में मदद करते हैं। https://profit-pulse.com.au"
+    },
+    "pot.championT": {
+      "from": "चैंपियन पर दाँव",
+      "to": "चैंपियन को सपोर्ट करो"
+    },
+    "home.lede": {
+      "from": "सबके नाम डालो, साइट हर मेंबर को रैंडम तरीके से देश बाँट देती है। फिर देखो लीडरबोर्ड को फ़ाइनल तक जूझते हुए। दुनिया भर में बिखरे, पर जुड़े हुए ग्रुप्स के लिए बना।",
+      "to": "सबके नाम डालो, साइट हर मेंबर को रैंडम तरीके से देश बाँट देती है। फिर फ़ाइनल तक लीडरबोर्ड की टक्कर देखो। दुनिया भर में बिखरे, पर जुड़े हुए ग्रुप्स के लिए बना।"
+    },
+    "banner.liveNowish": {
+      "from": "· बस लाइव होने वाला",
+      "to": "· अभी लाइव जैसा"
+    },
+    "pot.reserve": {
+      "from": "{money} चैंपियन पर दाँव लगाने वाले के लिए रखा, फ़ाइनल में तय होगा",
+      "to": "{money} चैंपियन को सपोर्ट करने वाले के लिए रखा गया — फ़ाइनल में तय होगा"
+    },
+    "pot.prizePot": {
+      "from": "इनामी पॉट",
+      "to": "इनामी राशि"
+    },
+    "title.darkHorse": {
+      "from": "डार्क हॉर्स",
+      "to": "छुपा रुस्तम"
+    },
+    "title.woodenSpoon": {
+      "from": "फिसड्डी",
+      "to": "सबसे नीचे"
+    }
+  },
+  "el": {
+    "home.titleL1": {
+      "from": "Το World Cup",
+      "to": "Το Παγκόσμιο Κύπελλο"
+    },
+    "create.defaultName": {
+      "from": "Η κλήρωσή μας για το World Cup",
+      "to": "Η κλήρωσή μας για το Παγκόσμιο Κύπελλο"
+    },
+    "create.namePlaceholder": {
+      "from": "π.χ. Το World Cup της Παρέας",
+      "to": "π.χ. Το Παγκόσμιο Κύπελλο της παρέας"
+    },
+    "share.title": {
+      "from": "World Cup: Κλήρωση ομίλων",
+      "to": "Κλήρωση ομίλων Παγκοσμίου Κυπέλλου"
+    },
+    "share.msgIntro": {
+      "from": "Είσαι καλεσμένος στην κλήρωσή μας για το World Cup. Λίγη πλάκα για τη διοργάνωση: σου πέφτει ένα τυχαίο σετ εθνικών ομάδων να παρακολουθείς, και μετά τα δίνουμε όλοι σε έναν κοινό πίνακα. Πάτα τον σύνδεσμο για να μπεις, ο κωδικός σου είναι ήδη φορτωμένος.",
+      "to": "Είσαι καλεσμένος στην κλήρωσή μας για το Παγκόσμιο Κύπελλο. Λίγη πλάκα για τη διοργάνωση: σου πέφτει ένα τυχαίο σετ εθνικών ομάδων να παρακολουθείς, και μετά τα δίνουμε όλοι σε έναν κοινό πίνακα. Πάτα τον σύνδεσμο για να μπεις, ο κωδικός σου είναι ήδη φορτωμένος."
+    },
+    "share.msgOutro": {
+      "from": "Φτιαγμένο από την ProfitPulse. Κάθε ομάδα σε αυτό το World Cup κυνηγά το τρόπαιο· εμείς βοηθάμε τους επιχειρηματίες να κυνηγήσουν το δικό τους. https://profit-pulse.com.au",
+      "to": "Φτιαγμένο από το ProfitPulse. Κάθε ομάδα σε αυτό το Παγκόσμιο Κύπελλο κυνηγά το τρόπαιο· εμείς βοηθάμε τους επιχειρηματίες να κυνηγήσουν το δικό τους. https://profit-pulse.com.au"
+    },
+    "pot.championT": {
+      "from": "Ποντάρισε στον Πρωταθλητή",
+      "to": "Στήριξε τον Πρωταθλητή"
+    },
+    "home.lede": {
+      "from": "Βάλε τα ονόματα όλων, η σελίδα μοιράζει τυχαία χώρες σε κάθε μέλος της ομάδας. Μετά δες την κατάταξη να δίνει μάχη μέχρι τον τελικό. Φτιαγμένο για δεμένες παρέες σκορπισμένες σε όλο τον κόσμο.",
+      "to": "Βάλε τα ονόματα όλων, η σελίδα μοιράζει τυχαία χώρες σε κάθε μέλος της παρέας. Μετά δες την κατάταξη να δίνει μάχη μέχρι τον τελικό. Φτιαγμένο για δεμένες παρέες σκορπισμένες σε όλο τον κόσμο."
+    },
+    "cer.modeLede": {
+      "from": "Μάζεψε όλους μπροστά σε μια οθόνη, διάλεξε στιλ και πάτα για να αποκαλύψεις ποιος παίρνει ποιον.",
+      "to": "Μάζεψε όλους μπροστά σε μία οθόνη, διάλεξε στιλ και πάτα για να αποκαλυφθεί ποιος παίρνει ποιον."
+    },
+    "predict.predictingFor": {
+      "from": "Προβλέπεις για",
+      "to": "Κάνεις προβλέψεις για"
+    },
+    "pot.top15T": {
+      "from": "Το πάνω 15% το μοιράζεται",
+      "to": "Το κορυφαίο 15% το μοιράζεται"
+    },
+    "draw.cap3": {
+      "from": "Κάνω τα κουμπιά ώστε να μην τύχει σε κανέναν χάλια ρόστερ.",
+      "to": "Κάνω τα μαθηματικά ώστε να μην τύχει σε κανέναν χάλια ρόστερ."
+    },
+    "draw.cap4": {
+      "from": "Επεξεργάζομαι την κατάταξη. Αυτό είναι το κομμάτι της ProfitPulse.",
+      "to": "Επεξεργάζομαι την κατάταξη. Αυτό είναι το κομμάτι του ProfitPulse."
+    },
+    "setup.evenTitle": {
+      "from": "Να το ισοφαρίσουμε;",
+      "to": "Να το ισορροπήσουμε;"
+    },
+    "join.errEmpty": {
+      "from": "Βάλε τον κωδικό ομάδας που σου έδωσαν.",
+      "to": "Βάλε τον κωδικό παρέας που σου έδωσαν."
+    },
+    "join.errNotFound": {
+      "from": "Δεν βρέθηκε ομάδα με αυτόν τον κωδικό. Τσεκάρεις ξανά τους χαρακτήρες;",
+      "to": "Δεν βρέθηκε παρέα με αυτόν τον κωδικό. Τσέκαρε ξανά τους χαρακτήρες;"
+    },
+    "join.lede": {
+      "from": "Βάλε τον κωδικό που σου μοιράστηκε αυτός που έφτιαξε την ομάδα για να παρακολουθείς την κλήρωση, τον πίνακα και το έπαθλο.",
+      "to": "Βάλε τον κωδικό που σου μοιράστηκε αυτός που έφτιαξε την παρέα για να παρακολουθείς την κλήρωση, τον πίνακα και το έπαθλο."
+    },
+    "join.title": {
+      "from": "Δες μια ομάδα",
+      "to": "Δες μια παρέα"
+    },
+    "join.viewTeam": {
+      "from": "Δες την ομάδα",
+      "to": "Δες την παρέα"
+    },
+    "title.topDog": {
+      "from": "Το αφεντικό",
+      "to": "Ο αρχηγός"
+    },
+    "title.onFire": {
+      "from": "Στις φωτιές",
+      "to": "Φωτιά"
+    },
+    "pot.reserve": {
+      "from": "{money} κρατημένα για όποιον ποντάρισε στον Πρωταθλητή, κρίνεται στον Τελικό",
+      "to": "{money} κρατημένα για όποιον στήριξε τον Πρωταθλητή, κρίνεται στον Τελικό"
+    }
+  }
+}
