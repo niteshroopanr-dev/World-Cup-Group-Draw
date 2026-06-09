@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import {
   Trophy, Users, UserPlus, Plus, X, Copy, Check, ArrowLeft, Sparkles,
-  Crown, Coins, Wand2, Flag, Shuffle, Info, RotateCcw, Lock, ChevronDown, Share2
+  Crown, Coins, Wand2, Flag, Shuffle, Info, RotateCcw, Lock, ChevronDown, Share2, Globe
 } from "lucide-react";
 import { supabase } from "./supabase.js";
+import { useT, useLang, getLocale } from "./i18n.jsx";
 
 /* ------------------------------------------------------------------ */
 /*  DATA  —  2026 FIFA World Cup (48 teams, 12 groups)                 */
@@ -46,7 +47,8 @@ const GROUPS = {
 };
 const LETTERS = Object.keys(GROUPS);
 const tierOf = (id) => Math.ceil(TEAMS[id].r / 12);
-const TIER_NAMES = { 1:"Elite", 2:"Strong", 3:"Mid", 4:"Underdog" };
+// Tier labels are looked up through i18n; the key map keeps the numeric tiers stable.
+const TIER_KEY = { 1:"tier.elite", 2:"tier.strong", 3:"tier.mid", 4:"tier.underdog" };
 const TIER_VAR = { 1:"var(--t1)", 2:"var(--t2)", 3:"var(--t3)", 4:"var(--t4)" };
 
 // 72 group-stage fixtures, approximate dates (11–27 June).
@@ -356,6 +358,7 @@ const store = {
 
 /* ================================================================== */
 export default function WorldCupFamilyDraw(){
+  const t = useT();
   const [view, setView] = useState(() => readUrlCode() ? "join" : "home");   // ?code= deep link lands on Join
   const [joinCode, setJoinCode] = useState(() => readUrlCode());             // pre-filled join code (not auto-submitted)
   const [group, setGroup] = useState(null);
@@ -495,8 +498,9 @@ export default function WorldCupFamilyDraw(){
       {view==="group" && group && <GroupView group={group} preds={preds} onPick={savePick} mine={mine} toggleMine={toggleMine} isCreator={isCreator} matches={matches} knockouts={knockouts}
         onCeremony={()=>setView("ceremony")} saveGroup={saveGroup} saveResult={saveResult} exit={()=>{setGroup(null);setView("home");}}/>}
       <footer className="foot">
-        <div className="foot-note">A just-for-fun group game · not affiliated with FIFA · no real money is handled here</div>
-        {view!=="drawing" && <a className="foot-credit brand-logo" href="https://profit-pulse.com.au" target="_blank" rel="noopener noreferrer" aria-label="ProfitPulse, visit profit-pulse.com.au"><span className="foot-by">Built by</span><img className="foot-logo" src="/profitpulse-logo.png" alt="ProfitPulse"/></a>}
+        {view!=="drawing" && <LangPicker className="foot-lang"/>}
+        <div className="foot-note">{t("foot.note")}</div>
+        {view!=="drawing" && <a className="foot-credit brand-logo" href="https://profit-pulse.com.au" target="_blank" rel="noopener noreferrer" aria-label={t("foot.ppAria")}><span className="foot-by">{t("foot.builtBy")}</span><img className="foot-logo" src="/profitpulse-logo.png" alt="ProfitPulse"/></a>}
       </footer>
     </div>
   );
@@ -504,21 +508,23 @@ export default function WorldCupFamilyDraw(){
 
 /* ------------------------------- HOME ----------------------------- */
 function Home({ onCreate, onJoin, onResume, lastCode }){
+  const t = useT();
   return (
     <div className="wrap home">
+      <div className="home-lang"><LangPicker/></div>
       <div className="ball">⚽</div>
-      <p className="kicker">48 nations · one global rivalry</p>
-      <h1 className="display title">The World Cup<br/><span className="gold">Group Draw</span></h1>
-      <p className="lede">Insert everyone's names in, the site randomly allocates countries to each member of the group. Then watch the leaderboard fight it out all the way to the final. Built for connected groups scattered across the world.</p>
+      <p className="kicker">{t("home.kicker")}</p>
+      <h1 className="display title">{t("home.titleL1")}<br/><span className="gold">{t("home.titleL2")}</span></h1>
+      <p className="lede">{t("home.lede")}</p>
       <div className="cta-col">
-        <button className="btn btn-gold big" onClick={onCreate}><Sparkles size={20}/> Create new team</button>
-        <button className="btn btn-ghost big" onClick={onJoin}><Users size={20}/> View an existing team</button>
-        {lastCode && <button className="btn btn-link" onClick={onResume}><RotateCcw size={15}/> Resume my last team ({lastCode})</button>}
+        <button className="btn btn-gold big" onClick={onCreate}><Sparkles size={20}/> {t("home.create")}</button>
+        <button className="btn btn-ghost big" onClick={onJoin}><Users size={20}/> {t("home.viewExisting")}</button>
+        {lastCode && <button className="btn btn-link" onClick={onResume}><RotateCcw size={15}/> {t("home.resume",{code:lastCode})}</button>}
       </div>
       <div className="how">
-        <Step n="1" t="Add your group" d="Type in up to 100 names — the whole group, wherever they are."/>
-        <Step n="2" t="Share out all 48" d="Every team goes to someone, and squads are balanced to be about equally strong. Twelve members means four each; fewer means more each; more means some teams get shared."/>
-        <Step n="3" t="Climb the table" d="One code lets anyone follow the group standings, predict games and track the pot."/>
+        <Step n="1" t={t("home.step1t")} d={t("home.step1d")}/>
+        <Step n="2" t={t("home.step2t")} d={t("home.step2d")}/>
+        <Step n="3" t={t("home.step3t")} d={t("home.step3d")}/>
       </div>
     </div>
   );
@@ -527,6 +533,7 @@ const Step = ({n,t,d}) => (<div className="step"><span className="step-n display
 
 /* ------------------------------ CREATE ---------------------------- */
 function Create({ back, onDone }){
+  const t = useT();
   const [name, setName] = useState("");
   const [one, setOne] = useState("");
   const [bulk, setBulk] = useState("");
@@ -565,8 +572,8 @@ function Create({ back, onDone }){
   // Validate, then hand off to the optional creator setup (count choice + hand-pick) before the draw.
   const start = async () => {
     const c = code.trim().toUpperCase();
-    if(people.length<2){ setErr("Add at least two members for the draw."); return; }
-    if(!/^[A-Z0-9]{10}$/.test(c)){ setErr("Your code needs to be 10 letters or numbers."); return; }
+    if(people.length<2){ setErr(t("create.errMin")); return; }
+    if(!/^[A-Z0-9]{10}$/.test(c)){ setErr(t("create.errCode")); return; }
     setBusy(true); setErr("");
     const taken = await store.getGroup(c); setBusy(false);
     // Re-check on submit in case the code was claimed in the moment before the click; fail gently.
@@ -575,7 +582,7 @@ function Create({ back, onDone }){
   };
   // Pins and fewerIds are transient creator-side inputs; only the resulting allocation is saved.
   const finish = (pins, fewerIds) => {
-    const g = { code:code.trim().toUpperCase(), name:name.trim()||"Our World Cup Draw", created:Date.now(),
+    const g = { code:code.trim().toUpperCase(), name:name.trim()||t("create.defaultName"), created:Date.now(),
       members:people, alloc:buildAllocations(people, { pins, fewerIds }), results:{}, pool:{amount:0,cur:"AUD",structure:"top15"} };
     onDone(g);
   };
@@ -584,45 +591,45 @@ function Create({ back, onDone }){
 
   return (
     <div className="wrap">
-      <TopBar back={back} title="New draw"/>
-      <label className="field-lbl">Name your group</label>
-      <input className="input" placeholder="e.g. The Crew World Cup" value={name} onChange={e=>setName(e.target.value)} maxLength={48}/>
+      <TopBar back={back} title={t("create.title")}/>
+      <label className="field-lbl">{t("create.nameLabel")}</label>
+      <input className="input" placeholder={t("create.namePlaceholder")} value={name} onChange={e=>setName(e.target.value)} maxLength={48}/>
       <div className="row-between mt">
-        <label className="field-lbl no-mb">Add members <span className="muted">({people.length}/100)</span></label>
-        <button className="btn btn-mini" onClick={()=>setShowBulk(s=>!s)}>{showBulk?"Single":"Paste a list"}</button>
+        <label className="field-lbl no-mb">{t("create.addMembers")} <span className="muted">({people.length}/100)</span></label>
+        <button className="btn btn-mini" onClick={()=>setShowBulk(s=>!s)}>{showBulk?t("create.single"):t("create.pasteList")}</button>
       </div>
       {!showBulk ? (
         <div className="add-row">
-          <input ref={inputRef} className="input flex" placeholder="Type a name and hit +" value={one}
+          <input ref={inputRef} className="input flex" placeholder={t("create.onePlaceholder")} value={one}
             onChange={e=>setOne(e.target.value)} onKeyDown={e=>{ if(e.key==="Enter"){e.preventDefault();addOne();} }}/>
           <button className="btn btn-gold sq" onClick={addOne} disabled={!one.trim()||people.length>=100}><Plus size={20}/></button>
         </div>
       ) : (
         <div>
-          <textarea className="input area" rows={5} placeholder={"One name per line\nAva\nNoah\nMia"} value={bulk} onChange={e=>setBulk(e.target.value)}/>
-          <button className="btn btn-gold full mt-s" onClick={addBulk} disabled={!bulk.trim()}><UserPlus size={18}/> Add everyone</button>
+          <textarea className="input area" rows={5} placeholder={t("create.bulkPlaceholder")} value={bulk} onChange={e=>setBulk(e.target.value)}/>
+          <button className="btn btn-gold full mt-s" onClick={addBulk} disabled={!bulk.trim()}><UserPlus size={18}/> {t("create.addEveryone")}</button>
         </div>
       )}
       {people.length>0 && <div className="chips">{people.map(p=>(<span key={p.id} className="chip">{p.name}<button onClick={()=>remove(p.id)}><X size={13}/></button></span>))}</div>}
       {people.length>=2 && <p className="hint"><Info size={13}/> {
-        people.length<12 ? `All 48 teams get shared out with no duplicates, so each member holds about ${perPerson}, everyone on at least four, with squads balanced to be about equally strong.`
-        : people.length===12 ? "The sweet spot: all 48 teams, exactly four each, no duplicates, with squads balanced to be about equally strong."
-        : "Everyone holds four teams and all 48 are covered. Squads are balanced to be about equally strong, sharing the elite and strong sides out evenly first, so a few teams get held by two or more people."}</p>}
-      <label className="field-lbl">Choose a group code <span className="muted">(everyone enters this)</span></label>
-      <input className="input code-field display" placeholder="e.g. WORLDCUP26" value={code} maxLength={10}
+        people.length<12 ? t("create.hintUnder12",{per:perPerson})
+        : people.length===12 ? t("create.hint12")
+        : t("create.hintOver12")}</p>}
+      <label className="field-lbl">{t("create.codeLabel")} <span className="muted">{t("create.codeLabelHint")}</span></label>
+      <input className="input code-field display" placeholder={t("create.codePlaceholder")} value={code} maxLength={10}
         onChange={e=>{ setCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g,"").slice(0,10)); setErr(""); }}/>
       <div className="code-foot">
         {!codeOk
-          ? <span className="code-msg"><Info size={13}/> Pick something easy to remember and share. 10 letters or numbers.</span>
-          : avail==="checking" ? <span className="code-status checking">Checking…</span>
-          : avail==="ok" ? <span className="code-status ok"><Check size={14}/> Available</span>
-          : avail==="taken" ? <span className="code-status taken">That code is taken, try another.</span>
+          ? <span className="code-msg"><Info size={13}/> {t("create.codeMsg")}</span>
+          : avail==="checking" ? <span className="code-status checking">{t("create.checking")}</span>
+          : avail==="ok" ? <span className="code-status ok"><Check size={14}/> {t("create.available")}</span>
+          : avail==="taken" ? <span className="code-status taken">{t("create.codeTaken")}</span>
           : <span className="code-msg"/>}
-        <button className="btn btn-link gen-link" onClick={()=>{ setCode(genCode(10)); setErr(""); }}><Shuffle size={14}/> Or generate one for me</button>
+        <button className="btn btn-link gen-link" onClick={()=>{ setCode(genCode(10)); setErr(""); }}><Shuffle size={14}/> {t("create.generate")}</button>
       </div>
       {err && <p className="err">{err}</p>}
       <div className="sticky-cta">
-        <button className="btn btn-gold big full" disabled={people.length<2 || avail!=="ok" || busy} onClick={start}><Shuffle size={20}/> {busy?"Checking…":`Run the draw${people.length>=2?` · ${people.length}`:""}`}</button>
+        <button className="btn btn-gold big full" disabled={people.length<2 || avail!=="ok" || busy} onClick={start}><Shuffle size={20}/> {busy?t("create.checking"):`${t("common.runDraw")}${people.length>=2?` · ${people.length}`:""}`}</button>
       </div>
     </div>
   );
@@ -635,6 +642,7 @@ function Create({ back, onDone }){
 const toPins = (assign) => { const p={}; Object.entries(assign).forEach(([t,mid])=>{ if(mid){ (p[mid]=p[mid]||[]).push(t); } }); return p; };
 
 function Setup({ members, onBack, finish }){
+  const t = useT();
   const N = members.length;
   const base = Math.floor(48/N), rem = 48 - base*N;
   const uneven = rem !== 0 && N <= 12;
@@ -654,13 +662,13 @@ function Setup({ members, onBack, finish }){
   if(phase==="count") return (
     <div className="modal-overlay">
       <div className="modal-card">
-        <div className="modal-h">Even it out?</div>
-        <p className="lede" style={{margin:"8px 0 0"}}>The 48 teams will not split evenly between {N} people.</p>
-        <div className="modal-split">{rem} {rem===1?"person gets":"people get"} {base+1} teams and {smaller} {smaller===1?"gets":"get"} {base}.</div>
-        <p className="hint" style={{marginTop:0}}><Info size={13}/> Squads are still balanced to be about equally strong, so whoever gets fewer teams tends to get higher-ranked ones to make up for it. It is fine to let the app decide.</p>
+        <div className="modal-h">{t("setup.evenTitle")}</div>
+        <p className="lede" style={{margin:"8px 0 0"}}>{t("setup.evenLede",{n:N})}</p>
+        <div className="modal-split">{t("setup.split",{ rem, who:t(rem===1?"setup.personGets":"setup.peopleGet"), big:base+1, smaller, who2:t(smaller===1?"setup.gets":"setup.get"), small:base })}</div>
+        <p className="hint" style={{marginTop:0}}><Info size={13}/> {t("setup.evenHint")}</p>
         <div className="modal-actions">
-          <button className="btn btn-gold full" onClick={()=>{ setSel([]); setPhase("choose"); }}><Users size={18}/> Let me choose who gets fewer</button>
-          <button className="btn btn-ghost full" onClick={()=>{ setFewerIds(shuffle(members).slice(0, smaller).map(m=>m.id)); setPhase("manual"); }}><Shuffle size={18}/> Let the app decide</button>
+          <button className="btn btn-gold full" onClick={()=>{ setSel([]); setPhase("choose"); }}><Users size={18}/> {t("setup.chooseWho")}</button>
+          <button className="btn btn-ghost full" onClick={()=>{ setFewerIds(shuffle(members).slice(0, smaller).map(m=>m.id)); setPhase("manual"); }}><Shuffle size={18}/> {t("setup.appDecide")}</button>
         </div>
       </div>
     </div>
@@ -669,8 +677,8 @@ function Setup({ members, onBack, finish }){
   if(phase==="choose") return (
     <div className="modal-overlay">
       <div className="modal-card">
-        <div className="modal-h">Who gets the smaller squad?</div>
-        <p className="hint" style={{marginTop:8}}><Info size={13}/> Pick {smaller} of {N}. They will get {base} teams; everyone else gets {base+1}.</p>
+        <div className="modal-h">{t("setup.chooseTitle")}</div>
+        <p className="hint" style={{marginTop:8}}><Info size={13}/> {t("setup.chooseHint",{smaller,n:N,base,big:base+1})}</p>
         <div className="choose-list">
           {members.map(m=>{ const on=sel.includes(m.id);
             return <button key={m.id} className={"choose-name"+(on?" on":"")}
@@ -678,8 +686,8 @@ function Setup({ members, onBack, finish }){
               <span>{m.name}</span>{on && <Check size={16}/>}</button>; })}
         </div>
         <div className="modal-actions">
-          <button className="btn btn-gold full" disabled={sel.length!==smaller} onClick={()=>{ setFewerIds(sel); setPhase("manual"); }}>Continue · {sel.length} of {smaller} picked</button>
-          <button className="btn btn-link" onClick={()=>setPhase("count")}><ArrowLeft size={15}/> Back</button>
+          <button className="btn btn-gold full" disabled={sel.length!==smaller} onClick={()=>{ setFewerIds(sel); setPhase("manual"); }}>{t("setup.continuePicked",{sel:sel.length,smaller})}</button>
+          <button className="btn btn-link" onClick={()=>setPhase("count")}><ArrowLeft size={15}/> {t("common.back")}</button>
         </div>
       </div>
     </div>
@@ -687,33 +695,33 @@ function Setup({ members, onBack, finish }){
 
   return (
     <div className="wrap">
-      <TopBar back={onBack} title="Hand-pick teams (optional)"/>
-      <p className="hint"><Info size={13}/> Anything left on Auto is shared out by the balanced draw. Hand-picking a lot of teams for one person can tip the balance, so light touches work best.</p>
+      <TopBar back={onBack} title={t("setup.handpickTitle")}/>
+      <p className="hint"><Info size={13}/> {t("setup.manualHint",{auto:t("setup.auto")})}</p>
       <div className="setup-people">
         {members.map(m=>{ const full=pinCount[m.id]>=capMap[m.id];
-          return <span key={m.id} className={"setup-person"+(full?" full":"")}>{m.name} · {pinCount[m.id]} of {capMap[m.id]}{full?" (full)":""}</span>; })}
+          return <span key={m.id} className={"setup-person"+(full?" full":"")}>{t("setup.personCount",{name:m.name,n:pinCount[m.id],cap:capMap[m.id]})}{full?t("setup.fullSuffix"):""}</span>; })}
       </div>
       {tiers.map((arr,ti)=>(
         <div key={ti}>
-          <div className="md-head" style={{color:TIER_VAR[ti+1]}}>{TIER_NAMES[ti+1]}</div>
+          <div className="md-head" style={{color:TIER_VAR[ti+1]}}>{t(TIER_KEY[ti+1])}</div>
           {arr.map(id=>(
             <div className="assign-row" key={id}>
               <span className="t-flag">{TEAMS[id].f}</span>
               <span className="t-name">{TEAMS[id].n}</span>
-              <span className="t-tier" style={{background:TIER_VAR[tierOf(id)]}}>{TIER_NAMES[tierOf(id)]}</span>
+              <span className="t-tier" style={{background:TIER_VAR[tierOf(id)]}}>{t(TIER_KEY[tierOf(id)])}</span>
               <select className="assign-sel" value={assign[id]||""} onChange={e=>{ const v=e.target.value;
                 setAssign(prev=>{ const o={...prev}; if(v) o[id]=v; else delete o[id]; return o; }); }}>
-                <option value="">Auto</option>
+                <option value="">{t("setup.auto")}</option>
                 {members.map(m=>{ const full=pinCount[m.id]>=capMap[m.id] && assign[id]!==m.id;
-                  return <option key={m.id} value={m.id} disabled={full}>{m.name}{full?" (full)":""}</option>; })}
+                  return <option key={m.id} value={m.id} disabled={full}>{m.name}{full?t("setup.fullSuffix"):""}</option>; })}
               </select>
             </div>
           ))}
         </div>
       ))}
       <div className="sticky-cta">
-        <button className="btn btn-gold big full" onClick={()=>finish(toPins(assign), fewerIds || undefined)}><Shuffle size={20}/> Run the draw</button>
-        <button className="btn btn-link" style={{width:"100%",marginTop:8}} onClick={()=>finish({}, fewerIds || undefined)}>Skip, allocate everything automatically</button>
+        <button className="btn btn-gold big full" onClick={()=>finish(toPins(assign), fewerIds || undefined)}><Shuffle size={20}/> {t("common.runDraw")}</button>
+        <button className="btn btn-link" style={{width:"100%",marginTop:8}} onClick={()=>finish({}, fewerIds || undefined)}>{t("setup.skip")}</button>
       </div>
     </div>
   );
@@ -721,23 +729,24 @@ function Setup({ members, onBack, finish }){
 
 /* ------------------------------- JOIN ----------------------------- */
 function Join({ back, onFound, initialCode }){
+  const t = useT();
   const [code,setCode]=useState(initialCode || ""); const [err,setErr]=useState(""); const [busy,setBusy]=useState(false);
-  const go = async () => { const c=code.trim().toUpperCase(); if(c.length<4){setErr("Enter the group code you were given.");return;}
+  const go = async () => { const c=code.trim().toUpperCase(); if(c.length<4){setErr(t("join.errEmpty"));return;}
     setErr("");
     const cached = store.readCache(c);
     if(cached?.group){ onFound(cached.group); return; }                          // warm: open instantly from cache, revalidate in background
     setBusy(true); const b=await store.loadBundle(c); setBusy(false);            // cold: one parallel wave for group, results and predictions
-    if(b.group) onFound(b.group, b); else setErr("No group found for that code. Double-check the characters?"); };
+    if(b.group) onFound(b.group, b); else setErr(t("join.errNotFound")); };
   return (
     <div className="wrap">
-      <TopBar back={back} title="View a team"/>
+      <TopBar back={back} title={t("join.title")}/>
       <div className="join-card">
         <div className="ball sm">⚽</div>
-        <p className="lede center">Pop in the code the team creator shared with you to follow the draw, table and pot.</p>
-        <input className="input code-input display" placeholder="GROUPCODE1" value={code} maxLength={10}
+        <p className="lede center">{t("join.lede")}</p>
+        <input className="input code-input display" placeholder={t("join.placeholder")} value={code} maxLength={10}
           onChange={e=>setCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g,"").slice(0,10))} onKeyDown={e=>{ if(e.key==="Enter") go(); }}/>
         {err && <p className="err">{err}</p>}
-        <button className="btn btn-gold big full mt-s" onClick={go} disabled={busy}>{busy?"Looking…":"View the team"}</button>
+        <button className="btn btn-gold big full mt-s" onClick={go} disabled={busy}>{busy?t("join.looking"):t("join.viewTeam")}</button>
       </div>
     </div>
   );
@@ -748,18 +757,15 @@ function Join({ back, onFound, initialCode }){
 // ceremony. Purely cosmetic: the allocation and the synced data are already done; this only delays
 // the view by a beat. Honours prefers-reduced-motion (softens to a fade) and always proceeds on a
 // timer, so it never blocks the flow.
-const DRAW_CAPTIONS = [
-  "Balancing the squads, no favourites allowed.",
-  "Sharing out the giants fairly, hold tight.",
-  "Doing the maths so nobody cops a dud squad.",
-  "Crunching the rankings. This is the ProfitPulse bit.",
-];
+// Caption keys (length drives the timing); the visible text is looked up per language.
+const DRAW_CAPTION_KEYS = ["draw.cap1", "draw.cap2", "draw.cap3", "draw.cap4"];
 function Drawing({ onDone }){
+  const t = useT();
   const [i, setI] = useState(0);
   const [closing, setClosing] = useState(false);
   useEffect(() => {
     const timers = [];
-    DRAW_CAPTIONS.forEach((_, k) => { if(k>0) timers.push(setTimeout(()=>setI(k), k*1875)); });
+    DRAW_CAPTION_KEYS.forEach((_, k) => { if(k>0) timers.push(setTimeout(()=>setI(k), k*1875)); });
     timers.push(setTimeout(()=>setClosing(true), 7500));   // four captions read comfortably first
     timers.push(setTimeout(onDone, 8500));                 // hold the closing state ~1s, then go
     return () => timers.forEach(clearTimeout);
@@ -767,12 +773,12 @@ function Drawing({ onDone }){
   return (
     <div className="wrap draw-load">
       <div className="dl-inner">
-        <a className="brand-logo dl-logo" href="https://profit-pulse.com.au" target="_blank" rel="noopener noreferrer" aria-label="ProfitPulse, visit profit-pulse.com.au">
+        <a className="brand-logo dl-logo" href="https://profit-pulse.com.au" target="_blank" rel="noopener noreferrer" aria-label={t("foot.ppAria")}>
           <img src="/profitpulse-logo.png" alt="ProfitPulse"/>
         </a>
         <div className="dl-bar"><span/></div>
-        <div className="dl-cap">{closing ? "Squads balanced. Enjoy the games." : DRAW_CAPTIONS[i]}</div>
-        {closing && <div className="dl-by">by <span className="gold">ProfitPulse</span></div>}
+        <div className="dl-cap">{closing ? t("draw.closing") : t(DRAW_CAPTION_KEYS[i])}</div>
+        {closing && <div className="dl-by">{t("draw.by")} <span className="gold">ProfitPulse</span></div>}
       </div>
     </div>
   );
@@ -780,6 +786,7 @@ function Drawing({ onDone }){
 
 /* ----------------------------- CEREMONY --------------------------- */
 function Ceremony({ group, onEnter, fire }){
+  const t = useT();
   const members = group.members;
   // squad display: strongest first
   const teamsFor = (m) => [...(group.alloc[m.id]||[])].sort((a,b)=>tierOf(a)-tierOf(b)||TEAMS[a].r-TEAMS[b].r);
@@ -817,32 +824,32 @@ function Ceremony({ group, onEnter, fire }){
     <div className="wrap cer">
       <div className="cer-done">
         <div className="ball">🏆</div>
-        <h1 className="display cer-h">The draw<br/><span className="gold">is done!</span></h1>
-        <p className="lede center">All teams are shared out across {members.length} members.{strongest && <> Strongest squad on paper goes to <b>{strongest.name}</b>.</>}</p>
-        <button className="btn btn-gold big full" onClick={onEnter}><Trophy size={20}/> See the group table</button>
-        <button className="btn btn-link" onClick={replay}><RotateCcw size={15}/> Replay the draw</button>
+        <h1 className="display cer-h">{t("cer.doneL1")}<br/><span className="gold">{t("cer.doneL2")}</span></h1>
+        <p className="lede center">{t("cer.doneLede",{n:members.length})}{strongest && <>{t("cer.strongestPre")}<b>{strongest.name}</b>{t("cer.strongestPost")}</>}</p>
+        <button className="btn btn-gold big full" onClick={onEnter}><Trophy size={20}/> {t("cer.seeTable")}</button>
+        <button className="btn btn-link" onClick={replay}><RotateCcw size={15}/> {t("cer.replay")}</button>
       </div>
     </div>
   );
 
   if(!mode) return (
     <div className="wrap cer">
-      <p className="kicker center">The big draw</p>
-      <h1 className="display cer-h center">Time for<br/><span className="gold">the draw</span></h1>
-      <p className="lede center">Gather everyone around one screen, choose a style, then tap through to reveal who gets whom.</p>
+      <p className="kicker center">{t("cer.kicker")}</p>
+      <h1 className="display cer-h center">{t("cer.timeL1")}<br/><span className="gold">{t("cer.timeL2")}</span></h1>
+      <p className="lede center">{t("cer.modeLede")}</p>
       <div className="mode-grid">
         <button className="mode-card" onClick={()=>start("team")}>
           <Sparkles size={26}/>
-          <div className="mode-t">Team by team</div>
-          <div className="mode-d">One team at a time, going round the group, building up to the big sides.</div>
+          <div className="mode-t">{t("cer.teamByTeam")}</div>
+          <div className="mode-d">{t("cer.teamByTeamD")}</div>
         </button>
         <button className="mode-card" onClick={()=>start("squad")}>
           <Users size={26}/>
-          <div className="mode-t">Whole squads</div>
-          <div className="mode-d">Each member's full set of teams, one member at a time.</div>
+          <div className="mode-t">{t("cer.wholeSquads")}</div>
+          <div className="mode-d">{t("cer.wholeSquadsD")}</div>
         </button>
       </div>
-      <button className="btn btn-ghost full mt-s" onClick={onEnter}><Shuffle size={18}/> Skip it, just deal them out</button>
+      <button className="btn btn-ghost full mt-s" onClick={onEnter}><Shuffle size={18}/> {t("cer.skip")}</button>
     </div>
   );
 
@@ -853,14 +860,14 @@ function Ceremony({ group, onEnter, fire }){
   const display = st.full ? teamsFor(person) : seqFor(person).slice(0, shown).reverse(); // team: newest on top
   const atEnd = idx >= steps.length-1;
   const nextName = atEnd ? null : members[steps[idx+1].p].name;
-  const progress = mode==="squad" ? `Member ${idx+1} of ${steps.length}` : `Draw ${idx+1} of ${steps.length}`;
+  const progress = mode==="squad" ? t("cer.memberOf",{i:idx+1,n:steps.length}) : t("cer.drawOf",{i:idx+1,n:steps.length});
 
   return (
     <div className="wrap cer">
       <div className="cer-top"><span className="cer-prog">{progress}</span></div>
       <div className="cer-card" key={idx}>
         <div className="cer-name display">{person.name}</div>
-        <div className="cer-sub">{st.full ? `${total} teams` : `Team ${shown} of ${total}`}</div>
+        <div className="cer-sub">{st.full ? t("cer.teamsCount",{n:total}) : t("cer.teamOf",{i:shown,n:total})}</div>
         <div className="cer-teams">
           {display.map((id,i)=>{
             const isNew = mode==="squad" ? true : i===0;
@@ -874,7 +881,7 @@ function Ceremony({ group, onEnter, fire }){
         </div>
       </div>
       <div className="sticky-cta">
-        <button className="btn btn-gold big full" onClick={onNext}><Sparkles size={18}/> {atEnd ? "Finish the draw" : `Next: ${nextName}`}</button>
+        <button className="btn btn-gold big full" onClick={onNext}><Sparkles size={18}/> {atEnd ? t("cer.finish") : t("cer.next",{name:nextName})}</button>
       </div>
     </div>
   );
@@ -882,6 +889,7 @@ function Ceremony({ group, onEnter, fire }){
 
 /* ---------------------------- GROUP VIEW -------------------------- */
 function GroupView({ group, preds, onPick, mine, toggleMine, saveGroup, saveResult, exit, isCreator, onCeremony, matches, knockouts }){
+  const t = useT();
   const [tab, setTab] = useState("ranks");
   const [project, setProject] = useState(false);
   const [now, setNow] = useState(Date.now());
@@ -923,30 +931,30 @@ function GroupView({ group, preds, onPick, mine, toggleMine, saveGroup, saveResu
   const setResult = (fxId,h,a) => saveResult(fxId, h, a);
 
   const tabs = [
-    {k:"ranks", label:"Ranks", icon:<Trophy size={16}/>},
-    {k:"squads", label:"Squads", icon:<Users size={16}/>},
-    {k:"predict", label:"Predict", icon:<Wand2 size={16}/>},
-    {k:"cup", label:"Cup", icon:<Flag size={16}/>},
-    {k:"pot", label:"Pot", icon:<Coins size={16}/>},
+    {k:"ranks", label:t("tab.ranks"), icon:<Trophy size={16}/>},
+    {k:"squads", label:t("tab.squads"), icon:<Users size={16}/>},
+    {k:"predict", label:t("tab.predict"), icon:<Wand2 size={16}/>},
+    {k:"cup", label:t("tab.cup"), icon:<Flag size={16}/>},
+    {k:"pot", label:t("tab.pot"), icon:<Coins size={16}/>},
   ];
 
   return (
     <div className="wrap group">
       <div className="grp-head">
         <button className="icon-btn" onClick={exit}><ArrowLeft size={20}/></button>
-        <div className="grp-id"><div className="grp-name display">{group.name}</div><div className="grp-meta">{group.members.length} members</div></div>
+        <div className="grp-id"><div className="grp-name display">{group.name}</div><div className="grp-meta">{t("group.membersCount",{n:group.members.length})}</div></div>
         <CodePill code={group.code}/>
       </div>
       <ShareInvite code={group.code}/>
       <Banner nextFx={nextFx} lastFx={lastFx} now={now} leader={anyPlayed?standings[0]:null} results={results} matches={matches}/>
-      {isCreator && <button className="replay-draw" onClick={onCeremony}><Sparkles size={14}/> Watch the draw again</button>}
+      {isCreator && <button className="replay-draw" onClick={onCeremony}><Sparkles size={14}/> {t("group.watchAgain")}</button>}
       <div className="tabs">
         {tabs.map(t=>(<button key={t.k} className={"tab"+(tab===t.k?" on":"")} onClick={()=>setTab(t.k)}>{t.icon}<span>{t.label}</span></button>))}
       </div>
 
       {tab==="ranks" &&
         <button className={"crystal"+(project?" on":"")} onClick={()=>setProject(p=>!p)}>
-          <Wand2 size={16}/> {project ? "Showing the table from your picks — tap for live only" : "Crystal Ball: project your own picks onto the table"}
+          <Wand2 size={16}/> {project ? t("group.crystalOn") : t("group.crystalOff")}
         </button>}
 
       {tab==="ranks" && <RanksTab standings={standings} titles={titles} anyPlayed={anyPlayed} pool={group.pool} project={project}/>}
@@ -961,41 +969,42 @@ function GroupView({ group, preds, onPick, mine, toggleMine, saveGroup, saveResu
 function computeTitles(standings, anyPlayed, group, effResults){
   const t = {}; const add=(id,b)=>{ if(!id)return; (t[id]=t[id]||[]).push(b); };
   if(!anyPlayed) return t;
-  add(standings[0].id, {e:"👑",l:"Top Dog"});
-  if(standings.length>1) add(standings[standings.length-1].id, {e:"🥄",l:"Wooden Spoon"});
-  const slayer=[...standings].sort((a,b)=>b.bestUpset-a.bestUpset)[0]; if(slayer.bestUpset>0) add(slayer.id,{e:"🐉",l:"Giant Slayer"});
-  const goals=[...standings].sort((a,b)=>b.gf-a.gf)[0]; if(goals.gf>0) add(goals.id,{e:"⚽",l:"Goal Machine"});
+  add(standings[0].id, {e:"👑",l:"title.topDog"});
+  if(standings.length>1) add(standings[standings.length-1].id, {e:"🥄",l:"title.woodenSpoon"});
+  const slayer=[...standings].sort((a,b)=>b.bestUpset-a.bestUpset)[0]; if(slayer.bestUpset>0) add(slayer.id,{e:"🐉",l:"title.giantSlayer"});
+  const goals=[...standings].sort((a,b)=>b.gf-a.gf)[0]; if(goals.gf>0) add(goals.id,{e:"⚽",l:"title.goalMachine"});
   const dh=[...standings].map(s=>({id:s.id,v:Math.max(0,...s.teams.filter(x=>tierOf(x.id)===4).map(x=>x.pts))})).sort((a,b)=>b.v-a.v)[0];
-  if(dh && dh.v>0) add(dh.id,{e:"🐎",l:"Dark Horse"});
+  if(dh && dh.v>0) add(dh.id,{e:"🐎",l:"title.darkHorse"});
   let lastRound=-1; for(const fx of FIXTURES){ if(effResults[fx.id]) lastRound=Math.max(lastRound,fx.round); }
   if(lastRound>=0){ const rr={}; for(const fx of FIXTURES){ if(fx.round===lastRound && effResults[fx.id]) rr[fx.id]=effResults[fx.id]; }
     const fr=group.members.map(m=>({id:m.id,v:group.alloc[m.id].reduce((s,tid)=>s+teamStats(tid,rr).pts,0)})).sort((a,b)=>b.v-a.v)[0];
-    if(fr.v>0) add(fr.id,{e:"🔥",l:"On Fire"}); }
+    if(fr.v>0) add(fr.id,{e:"🔥",l:"title.onFire"}); }
   return t;
 }
 
 /* ------------------------------ BANNER ---------------------------- */
 function Banner({ nextFx, lastFx, now, leader, results, matches }){
+  const t = useT();
   const cd = nextFx ? countdown(koOf(nextFx, matches) - now) : null;
   return (
     <div className="banner">
-      {leader && <div className="brag"><Crown size={15}/> <b>{leader.name}</b> leads the group · {leader.pts} pts</div>}
+      {leader && <div className="brag"><Crown size={15}/> <b>{leader.name}</b> {t("banner.leads")} · {leader.pts} {t("common.pts")}</div>}
       <div className="banner-grid">
         {nextFx ? (
           <div className="bcell next">
-            <div className="bcell-lbl">Next kick-off {cd && cd.done ? "· live now-ish" : ""}</div>
-            <div className="match"><Side id={nextFx.home}/><span className="vs">v</span><Side id={nextFx.away} right/></div>
-            {cd && !cd.done && <div className="cd display">{cd.d}d {cd.h}h {cd.m}m {cd.s}s</div>}
-            <div className="bcell-sub">Group {nextFx.grp} · {fmtKickoff(koOf(nextFx, matches))}</div>
+            <div className="bcell-lbl">{t("banner.nextKickoff")} {cd && cd.done ? t("banner.liveNowish") : ""}</div>
+            <div className="match"><Side id={nextFx.home}/><span className="vs">{t("common.versus")}</span><Side id={nextFx.away} right/></div>
+            {cd && !cd.done && <div className="cd display">{cd.d}{t("cd.d")} {cd.h}{t("cd.h")} {cd.m}{t("cd.m")} {cd.s}{t("cd.s")}</div>}
+            <div className="bcell-sub">{t("common.groupX",{g:nextFx.grp})} · {fmtKickoff(koOf(nextFx, matches))}</div>
           </div>
-        ) : <div className="bcell next"><div className="bcell-lbl">All group games are in 🎉</div></div>}
+        ) : <div className="bcell next"><div className="bcell-lbl">{t("banner.allIn")}</div></div>}
         {lastFx ? (
           <div className="bcell last">
-            <div className="bcell-lbl">Just played</div>
+            <div className="bcell-lbl">{t("banner.justPlayed")}</div>
             <div className="match"><Side id={lastFx.home}/><span className="score display">{results[lastFx.id]?`${results[lastFx.id].h}–${results[lastFx.id].a}`:""}</span><Side id={lastFx.away} right/></div>
-            <div className="bcell-sub">Group {lastFx.grp} · {fmtKickoff(koOf(lastFx, matches))}</div>
+            <div className="bcell-sub">{t("common.groupX",{g:lastFx.grp})} · {fmtKickoff(koOf(lastFx, matches))}</div>
           </div>
-        ) : <div className="bcell last"><div className="bcell-lbl">No results entered yet</div><div className="bcell-sub">Head to the Cup tab to log scores.</div></div>}
+        ) : <div className="bcell last"><div className="bcell-lbl">{t("banner.noResults")}</div><div className="bcell-sub">{t("banner.noResultsSub",{cup:t("tab.cup")})}</div></div>}
       </div>
     </div>
   );
@@ -1004,61 +1013,64 @@ const Side = ({id, right}) => (<span className={"side"+(right?" r":"")}><span cl
 
 /* ------------------------------ RANKS ----------------------------- */
 function RanksTab({ standings, titles, anyPlayed, pool, project }){
+  const t = useT();
   const max = Math.max(1, ...standings.map(s=>s.pts));
   const top = standings.length ? standings[0].pts : 0;
   const payouts = pool.amount>0 ? computePayouts(standings, pool) : null;
   return (
     <div>
-      <div className="section-head"><span className="display sh-title">Group standings</span>
-        <span className="sh-sub">{standings.length} members · {project?"projected":(anyPlayed?"live":"not started")}</span></div>
-      {!anyPlayed && <p className="empty-note"><Sparkles size={15}/> The draw is set. Once games kick off (or you fill in the Predict tab), the group leaderboard comes alive.</p>}
+      <div className="section-head"><span className="display sh-title">{t("ranks.title")}</span>
+        <span className="sh-sub">{t("group.membersCount",{n:standings.length})} · {project?t("ranks.projected"):(anyPlayed?t("ranks.live"):t("ranks.notStarted"))}</span></div>
+      {!anyPlayed && <p className="empty-note"><Sparkles size={15}/> {t("ranks.empty",{predict:t("tab.predict")})}</p>}
       <div className="board">
         {standings.map((s,i)=>(
           <div key={s.id} className={"lb-row"+(s.rank===1&&anyPlayed?" lead":"")}>
             <div className={"lb-rank display"+(s.rank<=3&&anyPlayed?" medal m"+s.rank:"")}>{anyPlayed? s.rank : i+1}</div>
             <div className="lb-main">
-              <div className="lb-name">{s.name}{(titles[s.id]||[]).slice(0,3).map((b,j)=><span key={j} className="badge" title={b.l}>{b.e}</span>)}</div>
+              <div className="lb-name">{s.name}{(titles[s.id]||[]).slice(0,3).map((b,j)=><span key={j} className="badge" title={t(b.l)}>{b.e}</span>)}</div>
               <div className="lb-bar-wrap"><div className="lb-bar" style={{width:`${(s.pts/max)*100}%`}}/></div>
-              <div className="lb-sub">{s.teams.length} teams · {s.w}W {s.d}D {s.l}L
-                {anyPlayed && s.rank!==1 ? ` · ${top-s.pts} off top` : ""}
+              <div className="lb-sub">{t("common.teamsCount",{n:s.teams.length})} · {s.w}{t("abbr.w")} {s.d}{t("abbr.d")} {s.l}{t("abbr.l")}
+                {anyPlayed && s.rank!==1 ? ` · ${t("ranks.offTop",{n:top-s.pts})}` : ""}
                 {payouts&&payouts[s.id]?` · ${money(payouts[s.id],pool.cur)}`:""}</div>
             </div>
-            <div className="lb-pts display">{s.pts}<span>pts</span></div>
+            <div className="lb-pts display">{s.pts}<span>{t("common.pts")}</span></div>
           </div>
         ))}
       </div>
-      <p className="hint center"><Info size={13}/> Scores reward wins, goal margins, clean sheets and giant-killing upsets across all of a member's teams.</p>
+      <p className="hint center"><Info size={13}/> {t("ranks.hint")}</p>
     </div>
   );
 }
 
 /* ------------------------------ SQUADS ---------------------------- */
 function SquadsTab({ standings, titles, anyPlayed, teamHolders, openCard, setOpenCard }){
+  const t = useT();
   const alpha = [...standings].sort((a,b)=>a.name.localeCompare(b.name));
   const hasDupes = Object.values(teamHolders||{}).some(c=>c>1);
   return (<div className="squads">
-    {hasDupes && <p className="hint"><Info size={13}/> With more than 12 members, every team is still allocated and squads are balanced to be about equally strong, sharing the elite and strong sides out evenly first, so some teams get held by more than one member. A <span className="t-share inline">×N</span> tag shows how many members hold that team.</p>}
+    {hasDupes && <p className="hint"><Info size={13}/> {t("squads.dupesPre")}<span className="t-share inline">×N</span>{t("squads.dupesPost")}</p>}
     {alpha.map(s=>(
     <Card key={s.id} s={s} titles={titles[s.id]||[]} anyPlayed={anyPlayed} teamHolders={teamHolders} open={openCard===s.id} onToggle={()=>setOpenCard(o=>o===s.id?null:s.id)}/>
   ))}</div>);
 }
 function Card({ s, titles, anyPlayed, teamHolders, open, onToggle }){
+  const tr = useT();
   const teams = [...s.teams].sort((a,b)=> tierOf(a.id)-tierOf(b.id) || TEAMS[a.id].r-TEAMS[b.id].r);
   return (
     <div className={"card"+(open?" open":"")}>
       <button className="card-head" onClick={onToggle}>
         <div className="card-rank display">{anyPlayed? "#"+s.rank : "—"}</div>
         <div className="card-name">{s.name}
-          <div className="card-badges">{titles.map((b,i)=><span key={i} className="badge">{b.e}</span>)}<span className="card-tag">{teams.length} teams</span></div>
+          <div className="card-badges">{titles.map((b,i)=><span key={i} className="badge">{b.e}</span>)}<span className="card-tag">{tr("common.teamsCount",{n:teams.length})}</span></div>
         </div>
-        <div className="card-pts display">{s.pts}<span>pts</span></div>
+        <div className="card-pts display">{s.pts}<span>{tr("common.pts")}</span></div>
       </button>
       <div className="card-teams" style={open?{maxHeight:teams.length*46+16}:undefined}>
         {teams.map(t=>(
           <div className="team-row" key={t.id}>
             <span className="t-flag">{TEAMS[t.id].f}</span>
             <span className="t-name">{TEAMS[t.id].n}</span>
-            {teamHolders&&teamHolders[t.id]>1 && <span className="t-share" title={`Held by ${teamHolders[t.id]} members`}>×{teamHolders[t.id]}</span>}
+            {teamHolders&&teamHolders[t.id]>1 && <span className="t-share" title={tr("squads.heldBy",{n:teamHolders[t.id]})}>×{teamHolders[t.id]}</span>}
             <span className="t-rec">{t.pld>0?`${t.w}-${t.d}-${t.l}`:"—"}</span>
             <span className="t-pts display">{t.pts}</span>
           </div>
@@ -1072,19 +1084,21 @@ function Card({ s, titles, anyPlayed, teamHolders, open, onToggle }){
 // Quiet, information-only chance line: "🇲🇽 68% / Draw 21% / 🇿🇦 12%". Renders nothing when the
 // feed has no figures or the game is over.
 function Chances({ fx, matches }){
+  const t = useT();
   const c = chancesFor(fx, matches);
   if(!c) return null;
   return (
     <div className="chances">
       <span className="chc"><span className="flag">{TEAMS[fx.home].f}</span> <b>{c.home}%</b></span>
       <span className="chc-sep">/</span>
-      <span className="chc">Draw <b>{c.draw}%</b></span>
+      <span className="chc">{t("common.draw")} <b>{c.draw}%</b></span>
       <span className="chc-sep">/</span>
       <span className="chc"><span className="flag">{TEAMS[fx.away].f}</span> <b>{c.away}%</b></span>
     </div>
   );
 }
 function PredictTab({ group, preds, onPick, mine, toggleMine, now, results, matches }){
+  const t = useT();
   const members = group.members;
   const managed = members.filter(m=>mine.includes(m.id));
   const setPick = (memId, fx, p) => {
@@ -1117,47 +1131,47 @@ function PredictTab({ group, preds, onPick, mine, toggleMine, now, results, matc
 
   return (
     <div>
-      <div className="section-head"><span className="display sh-title">Predictions league</span>
-        <span className="sh-sub">{managed.length? `${managed.length} on this device` : "pick the winners"}</span></div>
+      <div className="section-head"><span className="display sh-title">{t("predict.title")}</span>
+        <span className="sh-sub">{managed.length? t("predict.onDevice",{n:managed.length}) : t("predict.pickWinners")}</span></div>
 
       <div className="me-pick">
-        <span className="me-lbl">You're predicting for</span>
+        <span className="me-lbl">{t("predict.predictingFor")}</span>
         <div className="me-chips">
           {members.map(m=>(<button key={m.id} className={"me-chip"+(mine.includes(m.id)?" on":"")} onClick={()=>toggleMine(m.id)}>{m.name}</button>))}
         </div>
       </div>
-      <p className="hint"><Info size={13}/> Tap everyone you're entering picks for, including kids without their own phone. One device can hold several people's predictions.</p>
+      <p className="hint"><Info size={13}/> {t("predict.tapHint")}</p>
 
-      <div className="md-head">Standings</div>
+      <div className="md-head">{t("predict.standings")}</div>
       {anyResult ? (
         <div className="board">
           {board.map(s=>(
             <div key={s.id} className={"pl-row"+(s.rank===1?" lead":"")}>
               <span className="pl-rank display">{s.rank}</span>
-              <span className="pl-name">{s.name}{mine.includes(s.id) && <span className="pl-you">yours</span>}</span>
-              <span className="pl-stat">{s.correct} correct of {s.called}</span>
-              <span className="pl-pts display">{s.correct}<span>pts</span></span>
+              <span className="pl-name">{s.name}{mine.includes(s.id) && <span className="pl-you">{t("predict.yours")}</span>}</span>
+              <span className="pl-stat">{t("predict.correctOf",{c:s.correct,n:s.called})}</span>
+              <span className="pl-pts display">{s.correct}<span>{t("common.pts")}</span></span>
             </div>
           ))}
         </div>
-      ) : <p className="hint"><Info size={13}/> The standings light up as games finish. Each correct winner is worth one point.</p>}
+      ) : <p className="hint"><Info size={13}/> {t("predict.standingsHint")}</p>}
 
-      <div className="md-head">Upcoming picks</div>
-      {managed.length===0 ? <p className="hint"><Info size={13}/> Tap the names above to start predicting. Picks lock at kick-off and stay hidden from everyone else until then.</p>
+      <div className="md-head">{t("predict.upcoming")}</div>
+      {managed.length===0 ? <p className="hint"><Info size={13}/> {t("predict.startHint")}</p>
         : <>
           <div className="pred-progress">
             {managed.map(m=>(<span className="prog-item" key={m.id}><b>{m.name}</b> {pickedCount(m.id)}/{upcoming.length}</span>))}
           </div>
-          {upcoming.length===0 ? <p className="hint"><Info size={13}/> No games left to predict right now.</p>
+          {upcoming.length===0 ? <p className="hint"><Info size={13}/> {t("predict.noGames")}</p>
           : <>
-            {upcomingHasChances && <p className="chance-note">Estimated chances from bookmakers' odds, for interest only.</p>}
+            {upcomingHasChances && <p className="chance-note">{t("predict.chanceNote")}</p>}
             <div className="fixtures">
               {upcoming.map(fx=>(
                 <div className="fx" key={fx.id}>
-                  <div className="fx-top"><span className="fx-grp">Grp {fx.grp}</span><span className="fx-date">{fmtKickoff(koOf(fx,matches))}</span></div>
+                  <div className="fx-top"><span className="fx-grp">{t("common.grpX",{g:fx.grp})}</span><span className="fx-date">{fmtKickoff(koOf(fx,matches))}</span></div>
                   <div className="fx-main">
                     <div className="fx-team"><span className="flag">{TEAMS[fx.home].f}</span><span>{TEAMS[fx.home].n}</span></div>
-                    <span className="fx-mid">v</span>
+                    <span className="fx-mid">{t("common.versus")}</span>
                     <div className="fx-team r"><span>{TEAMS[fx.away].n}</span><span className="flag">{TEAMS[fx.away].f}</span></div>
                   </div>
                   <Chances fx={fx} matches={matches}/>
@@ -1167,7 +1181,7 @@ function PredictTab({ group, preds, onPick, mine, toggleMine, now, results, matc
                       <div className="pick-line" key={m.id}>
                         {managed.length>1 && <span className="pick-who">{m.name}</span>}
                         <div className="pred-row">
-                          {[["home",fx.home],["draw","Draw"],["away",fx.away]].map(([p,lbl])=>(
+                          {[["home",fx.home],["draw",t("common.draw")],["away",fx.away]].map(([p,lbl])=>(
                             <button key={p} className={"pred-btn"+(pick===p?" on":"")} onClick={()=>setPick(m.id,fx,p)}>{lbl}</button>
                           ))}
                         </div>
@@ -1180,8 +1194,8 @@ function PredictTab({ group, preds, onPick, mine, toggleMine, now, results, matc
         </>}
 
       {reveal.length>0 && <>
-        <div className="md-head">Results &amp; everyone's calls</div>
-        {revealHasChances && <p className="chance-note">Estimated chances from bookmakers' odds, for interest only.</p>}
+        <div className="md-head">{t("predict.resultsCalls")}</div>
+        {revealHasChances && <p className="chance-note">{t("predict.chanceNote")}</p>}
         <div className="fixtures">
           {reveal.map(fx=>{
             const res = results[fx.id];
@@ -1190,11 +1204,11 @@ function PredictTab({ group, preds, onPick, mine, toggleMine, now, results, matc
             const live = res && off && off.hasScore && isLiveStatus(off.status);
             return (
               <div className={"fx"+(res?" done":"")} key={fx.id}>
-                <div className="fx-top"><span className="fx-grp">Grp {fx.grp}</span>
-                  <span className="fx-date">{res? `${live?"Live":"Full time"} ${res.h}–${res.a}` : "Kicked off"}</span></div>
+                <div className="fx-top"><span className="fx-grp">{t("common.grpX",{g:fx.grp})}</span>
+                  <span className="fx-date">{res? `${live?t("common.live"):t("common.fullTime")} ${res.h}–${res.a}` : t("predict.kickedOff")}</span></div>
                 <div className="fx-main">
                   <div className="fx-team"><span className="flag">{TEAMS[fx.home].f}</span><span>{TEAMS[fx.home].n}</span></div>
-                  <span className="fx-mid">v</span>
+                  <span className="fx-mid">{t("common.versus")}</span>
                   <div className="fx-team r"><span>{TEAMS[fx.away].n}</span><span className="flag">{TEAMS[fx.away].f}</span></div>
                 </div>
                 <Chances fx={fx} matches={matches}/>
@@ -1202,10 +1216,10 @@ function PredictTab({ group, preds, onPick, mine, toggleMine, now, results, matc
                   {members.map(m=>{
                     const pk = preds[m.id] && preds[m.id][fx.id];
                     const right = act && pk ? pk===act : null;
-                    const lbl = !pk ? "no pick" : pk==="draw" ? "Draw" : pk==="home" ? TEAMS[fx.home].n : TEAMS[fx.away].n;
+                    const lbl = !pk ? t("predict.noPick") : pk==="draw" ? t("common.draw") : pk==="home" ? TEAMS[fx.home].n : TEAMS[fx.away].n;
                     return (
                       <div className={"call"+(right===true?" hit":right===false?" miss":"")} key={m.id}>
-                        <span className="call-name">{m.name}{mine.includes(m.id) && <span className="call-mine">yours</span>}</span>
+                        <span className="call-name">{m.name}{mine.includes(m.id) && <span className="call-mine">{t("predict.yours")}</span>}</span>
                         <span className="call-pick">{lbl}{right===true?" ✓":right===false?" ✗":""}</span>
                       </div>
                     );
@@ -1222,33 +1236,34 @@ function PredictTab({ group, preds, onPick, mine, toggleMine, now, results, matc
 
 /* ------------------------------- CUP ------------------------------ */
 function CupTab({ group, setResult, nextFx, results, matches, knockouts }){
+  const t = useT();
   const [sel, setSel] = useState(()=> nextFx ? nextFx.grp : "A");
   const isKO = sel==="KO";
   const table = isKO ? [] : groupStandings(sel, results);
   const fixtures = isKO ? [] : FIXTURES.filter(fx=>fx.grp===sel).sort((a,b)=>koOf(a,matches)-koOf(b,matches));
   return (
     <div>
-      <div className="section-head"><span className="display sh-title">The tournament</span><span className="sh-sub">{isKO?"knockout bracket":"real groups & results"}</span></div>
+      <div className="section-head"><span className="display sh-title">{t("cup.title")}</span><span className="sh-sub">{isKO?t("cup.subKo"):t("cup.subGroups")}</span></div>
       <div className="grp-sel">
         {LETTERS.map(L=>(<button key={L} className={"grp-chip"+(sel===L?" on":"")} onClick={()=>setSel(L)}>{L}</button>))}
-        <button className={"grp-chip ko"+(isKO?" on":"")} onClick={()=>setSel("KO")}>Knockouts</button>
+        <button className={"grp-chip ko"+(isKO?" on":"")} onClick={()=>setSel("KO")}>{t("cup.knockouts")}</button>
       </div>
 
       {isKO ? <KnockoutList knockouts={knockouts}/> : <>
       <div className="std-card">
-        <div className="std-title">Group {sel}</div>
-        <div className="std-row std-h"><span className="std-pos"></span><span className="std-team">Team</span><span>P</span><span>W</span><span>D</span><span>L</span><span>GD</span><span className="std-pts">Pts</span></div>
-        {table.map((t,i)=>(
-          <div className={"std-row"+(i<2?" qual":"")} key={t.id}>
+        <div className="std-title">{t("common.groupX",{g:sel})}</div>
+        <div className="std-row std-h"><span className="std-pos"></span><span className="std-team">{t("cup.team")}</span><span>{t("abbr.p")}</span><span>{t("abbr.w")}</span><span>{t("abbr.d")}</span><span>{t("abbr.l")}</span><span>{t("abbr.gd")}</span><span className="std-pts">{t("abbr.pts")}</span></div>
+        {table.map((row,i)=>(
+          <div className={"std-row"+(i<2?" qual":"")} key={row.id}>
             <span className="std-pos">{i+1}</span>
-            <span className="std-team"><span className="t-flag sm">{TEAMS[t.id].f}</span><span className="std-name">{TEAMS[t.id].n}</span></span>
-            <span>{t.pld}</span><span>{t.w}</span><span>{t.d}</span><span>{t.l}</span><span>{t.gd>=0?"+":""}{t.gd}</span><span className="std-pts">{t.pts}</span>
+            <span className="std-team"><span className="t-flag sm">{TEAMS[row.id].f}</span><span className="std-name">{TEAMS[row.id].n}</span></span>
+            <span>{row.pld}</span><span>{row.w}</span><span>{row.d}</span><span>{row.l}</span><span>{row.gd>=0?"+":""}{row.gd}</span><span className="std-pts">{row.pts}</span>
           </div>
         ))}
-        <div className="std-foot">Top two (highlighted) advance, plus the best third-placed sides.</div>
+        <div className="std-foot">{t("cup.advance")}</div>
       </div>
 
-      <div className="md-head">Group {sel} fixtures</div>
+      <div className="md-head">{t("cup.fixtures",{g:sel})}</div>
       <div className="fixtures">
         {fixtures.map(fx=>{
           const res = results[fx.id];
@@ -1256,8 +1271,8 @@ function CupTab({ group, setResult, nextFx, results, matches, knockouts }){
           const showOfficial = !!(off && off.hasScore);
           return (
             <div className={"fx"+(res?" done":"")} key={fx.id}>
-              <div className="fx-top"><span className="fx-grp">MD{fx.round+1}</span>
-                <span className="fx-date">{showOfficial ? (isLiveStatus(off.status)?"Live":"Full time") : fmtKickoff(koOf(fx,matches))}</span></div>
+              <div className="fx-top"><span className="fx-grp">{t("cup.mdX",{n:fx.round+1})}</span>
+                <span className="fx-date">{showOfficial ? (isLiveStatus(off.status)?t("common.live"):t("common.fullTime")) : fmtKickoff(koOf(fx,matches))}</span></div>
               <div className="fx-main">
                 <div className="fx-team"><span className="flag">{TEAMS[fx.home].f}</span><span>{TEAMS[fx.home].n}</span></div>
                 {showOfficial
@@ -1269,7 +1284,7 @@ function CupTab({ group, setResult, nextFx, results, matches, knockouts }){
           );
         })}
       </div>
-      <p className="hint"><Info size={13}/> Official scores from the live feed fill in automatically. Until then, anyone in the group can enter a score here, and results flow straight into both the real group table above and the group standings.</p>
+      <p className="hint"><Info size={13}/> {t("cup.hint")}</p>
       </>}
     </div>
   );
@@ -1280,28 +1295,31 @@ function CupTab({ group, setResult, nextFx, results, matches, knockouts }){
 // shared feed, decodes undecided slot tokens into readable placeholders, and shows local kick-off
 // times, live/final scores and chance percentages with the same treatment as the group games.
 const KO_STAGE_ORDER = ["Round of 32","Round of 16","Quarterfinal","Semifinal","Match for 3rd place","Final"];
-const KO_STAGE_LABEL = { "Round of 32":"Round of 32", "Round of 16":"Round of 16", "Quarterfinal":"Quarter-finals", "Semifinal":"Semi-finals", "Match for 3rd place":"Play-off for third", "Final":"Final" };
-const KO_STAGE_TAG = { "Round of 32":"R32", "Round of 16":"R16", "Quarterfinal":"QF", "Semifinal":"SF", "Match for 3rd place":"3rd", "Final":"Final" };
+// Raw feed stage -> i18n key (label + compact tag). Unknown stages fall through to the raw string.
+const KO_STAGE_LABEL = { "Round of 32":"ko.r32", "Round of 16":"ko.r16", "Quarterfinal":"ko.qf", "Semifinal":"ko.sf", "Match for 3rd place":"ko.third", "Final":"ko.final" };
+const KO_STAGE_TAG = { "Round of 32":"ko.tagR32", "Round of 16":"ko.tagR16", "Quarterfinal":"ko.tagQF", "Semifinal":"ko.tagSF", "Match for 3rd place":"ko.tagThird", "Final":"ko.tagFinal" };
 // Token -> readable placeholder for a slot whose team is not decided yet. Real team ids fall through
-// to TEAMS elsewhere; unknown formats show the raw token rather than guess.
-function koSlotLabel(tok){
-  if(!tok) return "To be decided";
+// to TEAMS elsewhere; unknown formats show the raw token rather than guess. `t` is the i18n lookup.
+function koSlotLabel(tok, t){
+  if(!tok) return t("ko.tbd");
   let m;
-  if((m=/^W(\d+)$/.exec(tok))) return `Winner of Match ${m[1]}`;
-  if((m=/^L(\d+)$/.exec(tok))) return `Loser of Match ${m[1]}`;
-  if((m=/^1([A-L])$/.exec(tok))) return `Winners of Group ${m[1]}`;
-  if((m=/^2([A-L])$/.exec(tok))) return `Runners-up of Group ${m[1]}`;
-  if((m=/^3([A-L])/.exec(tok))) return `Third place Group ${m[1]}`;
+  if((m=/^W(\d+)$/.exec(tok))) return t("ko.winnerOf",{n:m[1]});
+  if((m=/^L(\d+)$/.exec(tok))) return t("ko.loserOf",{n:m[1]});
+  if((m=/^1([A-L])$/.exec(tok))) return t("ko.winnersGroup",{g:m[1]});
+  if((m=/^2([A-L])$/.exec(tok))) return t("ko.runnersGroup",{g:m[1]});
+  if((m=/^3([A-L])/.exec(tok))) return t("ko.thirdGroup",{g:m[1]});
   return tok;
 }
 function KoTeam({ tok, right }){
-  const t = TEAMS[tok];
-  if(!t) return <div className={"fx-team"+(right?" r":"")}><span className="ko-tbd">{koSlotLabel(tok)}</span></div>;
+  const tr = useT();
+  const team = TEAMS[tok];
+  if(!team) return <div className={"fx-team"+(right?" r":"")}><span className="ko-tbd">{koSlotLabel(tok, tr)}</span></div>;
   return right
-    ? <div className="fx-team r"><span>{t.n}</span><span className="flag">{t.f}</span></div>
-    : <div className="fx-team"><span className="flag">{t.f}</span><span>{t.n}</span></div>;
+    ? <div className="fx-team r"><span>{team.n}</span><span className="flag">{team.f}</span></div>
+    : <div className="fx-team"><span className="flag">{team.f}</span><span>{team.n}</span></div>;
 }
 function KoMatch({ row }){
+  const t = useT();
   const ko = row.kickoff ? Date.parse(row.kickoff) : NaN;
   const completed = (row.status||"")==="completed";
   const hasScore = row.home_score!=null && row.away_score!=null;
@@ -1309,18 +1327,18 @@ function KoMatch({ row }){
   const showChances = !completed && row.home_odds!=null && row.draw_odds!=null && row.away_odds!=null;
   return (
     <div className={"fx"+(hasScore?" done":"")}>
-      <div className="fx-top"><span className="fx-grp">{KO_STAGE_TAG[row.stage]||""}</span>
-        <span className="fx-date">{hasScore ? `${live?"Live":"Full time"} ${row.home_score}–${row.away_score}` : (Number.isNaN(ko) ? "To be scheduled" : fmtKickoff(ko))}</span></div>
+      <div className="fx-top"><span className="fx-grp">{KO_STAGE_TAG[row.stage]?t(KO_STAGE_TAG[row.stage]):""}</span>
+        <span className="fx-date">{hasScore ? `${live?t("common.live"):t("common.fullTime")} ${row.home_score}–${row.away_score}` : (Number.isNaN(ko) ? t("ko.tbs") : fmtKickoff(ko))}</span></div>
       <div className="fx-main">
         <KoTeam tok={row.home_team}/>
-        <span className="fx-mid">v</span>
+        <span className="fx-mid">{t("common.versus")}</span>
         <KoTeam tok={row.away_team} right/>
       </div>
       {showChances && (
         <div className="chances">
           <span className="chc">{TEAMS[row.home_team]?.f && <span className="flag">{TEAMS[row.home_team].f}</span>} <b>{row.home_odds}%</b></span>
           <span className="chc-sep">/</span>
-          <span className="chc">Draw <b>{row.draw_odds}%</b></span>
+          <span className="chc">{t("common.draw")} <b>{row.draw_odds}%</b></span>
           <span className="chc-sep">/</span>
           <span className="chc">{TEAMS[row.away_team]?.f && <span className="flag">{TEAMS[row.away_team].f}</span>} <b>{row.away_odds}%</b></span>
         </div>
@@ -1329,8 +1347,9 @@ function KoMatch({ row }){
   );
 }
 function KnockoutList({ knockouts }){
+  const t = useT();
   const rows = Object.values(knockouts||{});
-  if(!rows.length) return <p className="empty-note"><Sparkles size={15}/> The knockout bracket appears here once the fixtures are published.</p>;
+  if(!rows.length) return <p className="empty-note"><Sparkles size={15}/> {t("ko.empty")}</p>;
   const byStage = {}; rows.forEach(r=>{ (byStage[r.stage]=byStage[r.stage]||[]).push(r); });
   const order = KO_STAGE_ORDER.filter(s=>byStage[s]);
   Object.keys(byStage).forEach(s=>{ if(!order.includes(s)) order.push(s); });
@@ -1340,16 +1359,17 @@ function KnockoutList({ knockouts }){
         const list = byStage[stage].slice().sort((a,b)=> (Date.parse(a.kickoff)||0)-(Date.parse(b.kickoff)||0) || (a.match_number||0)-(b.match_number||0));
         return (
           <div key={stage}>
-            <div className="md-head">{KO_STAGE_LABEL[stage]||stage}</div>
+            <div className="md-head">{KO_STAGE_LABEL[stage]?t(KO_STAGE_LABEL[stage]):stage}</div>
             <div className="fixtures">{list.map(r=> <KoMatch key={r.id} row={r}/>)}</div>
           </div>
         );
       })}
-      <p className="hint"><Info size={13}/> Knockout kickoffs, teams and scores update automatically from the live feed. This view is read only.</p>
+      <p className="hint"><Info size={13}/> {t("ko.hint")}</p>
     </div>
   );
 }
 function ScoreEntry({ fx, res, onSet }){
+  const t = useT();
   const [h,setH]=useState(res?String(res.h):""); const [a,setA]=useState(res?String(res.a):"");
   useEffect(()=>{ setH(res?String(res.h):""); setA(res?String(res.a):""); },[res, fx.id]);
   const commit=(hv,av)=>{ if(hv!==""&&av!=="") onSet(fx.id, Math.max(0,+hv||0), Math.max(0,+av||0)); };
@@ -1358,20 +1378,22 @@ function ScoreEntry({ fx, res, onSet }){
       <input className="sc" inputMode="numeric" value={h} placeholder="–" onChange={e=>{const v=e.target.value.replace(/\D/g,"").slice(0,2);setH(v);commit(v,a);}}/>
       <span className="dash">:</span>
       <input className="sc" inputMode="numeric" value={a} placeholder="–" onChange={e=>{const v=e.target.value.replace(/\D/g,"").slice(0,2);setA(v);commit(h,v);}}/>
-      {res && <button className="clr" onClick={()=>onSet(fx.id,null)} title="Clear"><X size={13}/></button>}
+      {res && <button className="clr" onClick={()=>onSet(fx.id,null)} title={t("common.clear")}><X size={13}/></button>}
     </div>
   );
 }
 
 /* ------------------------------- POT ------------------------------ */
+// Split structures: `k` is the stored data value (never change it). The title/desc keys feed i18n.
 const STRUCTURES = [
-  {k:"top15", t:"Top 15% share it", d:"Tapered — biggest slice to the leader, then down the line. Fair for big groups."},
-  {k:"winner", t:"Winner takes all", d:"One champion scoops the lot."},
-  {k:"top3", t:"Podium (50 / 30 / 20)", d:"Classic top-three split."},
-  {k:"even", t:"Everyone shares", d:"Split evenly — pure participation fun."},
-  {k:"champion", t:"Back the Champion", d:"20% held for whoever owns the team that wins the Cup; the rest via the top-15% taper."},
+  {k:"top15", t:"pot.top15T", d:"pot.top15D"},
+  {k:"winner", t:"pot.winnerT", d:"pot.winnerD"},
+  {k:"top3", t:"pot.top3T", d:"pot.top3D"},
+  {k:"even", t:"pot.evenT", d:"pot.evenD"},
+  {k:"champion", t:"pot.championT", d:"pot.championD"},
 ];
 function PotTab({ group, standings, saveGroup, project, anyPlayed }){
+  const t = useT();
   const { pool } = group; const set=(patch)=>saveGroup({...group, pool:{...pool, ...patch}});
   const live = anyPlayed || project;
   const payouts = pool.amount>0 ? computePayouts(standings, pool) : {};
@@ -1380,57 +1402,77 @@ function PotTab({ group, standings, saveGroup, project, anyPlayed }){
   return (
     <div>
       <div className="pot-set">
-        <label className="field-lbl no-mb">Prize pot</label>
+        <label className="field-lbl no-mb">{t("pot.prizePot")}</label>
         <div className="pot-amount">
           <select className="cur-sel" value={pool.cur} onChange={e=>set({cur:e.target.value})}>{CURRENCIES.map(c=><option key={c}>{c}</option>)}</select>
           <input className="input pot-input display" inputMode="numeric" placeholder="0" value={pool.amount||""} onChange={e=>set({amount:Math.max(0,+e.target.value.replace(/\D/g,"")||0)})}/>
         </div>
-        <div className="quick">{[50,100,250,500].map(v=><button key={v} className="qbtn" onClick={()=>set({amount:v})}>+{v}</button>)}{pool.amount>0 && <button className="qbtn ghost" onClick={()=>set({amount:0})}>clear</button>}</div>
+        <div className="quick">{[50,100,250,500].map(v=><button key={v} className="qbtn" onClick={()=>set({amount:v})}>+{v}</button>)}{pool.amount>0 && <button className="qbtn ghost" onClick={()=>set({amount:0})}>{t("pot.clear")}</button>}</div>
       </div>
-      <label className="field-lbl">How should it be split?</label>
+      <label className="field-lbl">{t("pot.howSplit")}</label>
       <div className="struct-list">{STRUCTURES.map(s=>(
         <button key={s.k} className={"struct"+(pool.structure===s.k?" on":"")} onClick={()=>set({structure:s.k})}>
-          <div className="struct-t">{s.t}{pool.structure===s.k&&<Check size={15}/>}</div><div className="struct-d">{s.d}</div>
+          <div className="struct-t">{t(s.t)}{pool.structure===s.k&&<Check size={15}/>}</div><div className="struct-d">{t(s.d)}</div>
         </button>))}</div>
       {pool.amount>0 ? (
         live ? (
         <div className="payout-box">
-          <div className="payout-head">If it ended {project?"on the predicted table":"right now"}…</div>
-          {reserve>0 && <div className="reserve">🏆 {money(reserve,pool.cur)} held for the Champion's backer — decided at the Final</div>}
+          <div className="payout-head">{t("pot.ifEnded",{when:project?t("pot.predictedTable"):t("pot.rightNow")})}</div>
+          {reserve>0 && <div className="reserve">🏆 {t("pot.reserve",{money:money(reserve,pool.cur)})}</div>}
           {winners.length>0 ? winners.map(s=>(
             <div className="payout-row" key={s.id}><span className="po-rank display">{s.rank}</span><span className="po-name">{s.name}</span><span className="po-amt display">{money(payouts[s.id],pool.cur)}</span></div>
-          )) : <div className="muted center pad">No results yet to split on.</div>}
+          )) : <div className="muted center pad">{t("pot.noSplit")}</div>}
         </div>
-        ) : <p className="hint center"><Coins size={14}/> The split appears here once real match results are in. To preview it from predictions instead, switch on the Crystal Ball in the Ranks tab.</p>
-      ) : <p className="hint center"><Coins size={14}/> Set a pot above and pick a split. The numbers come alive once results are in.</p>}
-      <p className="disclaimer"><Info size={13}/> The app only tracks the pot and suggests a split. Settle up between yourselves — no money moves through here.</p>
+        ) : <p className="hint center"><Coins size={14}/> {t("pot.hintLive",{crystal:t("group.crystalName"),ranks:t("tab.ranks")})}</p>
+      ) : <p className="hint center"><Coins size={14}/> {t("pot.hintEmpty")}</p>}
+      <p className="disclaimer"><Info size={13}/> {t("pot.disclaimer")}</p>
     </div>
   );
 }
 
 /* ---------------------------- SHARED BITS ------------------------- */
+// Compact language selector (a globe + native-name dropdown). Shown upfront on the landing
+// page and again in the footer so it stays reachable everywhere. Adding a language later needs
+// nothing here; it just appears, because the options come straight from i18n's LANGS list.
+function LangPicker({ className }){
+  const t = useT();
+  const { lang, setLang, langs } = useLang();
+  return (
+    <label className={"lang-picker"+(className?" "+className:"")} aria-label={t("lang.choose")}>
+      <Globe size={15}/>
+      <select value={lang} onChange={e=>setLang(e.target.value)}>
+        {langs.map(l=>(<option key={l.code} value={l.code}>{l.label}</option>))}
+      </select>
+      <ChevronDown size={14} className="lang-caret"/>
+    </label>
+  );
+}
 function TopBar({ back, title }){ return <div className="topbar"><button className="icon-btn" onClick={back}><ArrowLeft size={20}/></button><span className="topbar-t">{title}</span><span style={{width:40}}/></div>; }
 function CodePill({ code }){
+  const t = useT();
   const [done,setDone]=useState(false);
   const copy = async () => { try{ await navigator.clipboard.writeText(code);}catch(e){} setDone(true); setTimeout(()=>setDone(false),1400); };
-  return (<button className="code-pill" onClick={copy} title="Copy group code"><span className="code-lbl">CODE</span><span className="code-val display">{code}</span>{done?<Check size={15}/>:<Copy size={14}/>}</button>);
+  return (<button className="code-pill" onClick={copy} title={t("code.copyTitle")}><span className="code-lbl">{t("code.label")}</span><span className="code-val display">{code}</span>{done?<Check size={15}/>:<Copy size={14}/>}</button>);
 }
 
 // Share invite: native share sheet where available, otherwise copy the message to the clipboard. A
 // purely client-side action, it never touches the saved data or the Supabase sync.
 function ShareInvite({ code }){
+  const t = useT();
   const [copied,setCopied]=useState(false);
   const share = async () => {
     const joinUrl = `${window.location.origin}/?code=${code}`;
-    const message = `You're invited to our World Cup draw. A bit of fun for the tournament: you get a random set of national teams to follow, then we all battle it out on a shared leaderboard. Tap the link to jump in, your code is already loaded.
+    // The join link, "World Cup" and "ProfitPulse" stay fixed by rule; the prose around them follows
+    // the reader's chosen language so the invite lands naturally wherever it is pasted.
+    const message = `${t("share.msgIntro")}
 
 ${joinUrl}
 
-Code: ${code}
+${t("share.msgCode",{code})}
 
-Made by ProfitPulse. Every team at this World Cup is chasing the trophy; we help business owners chase theirs. https://profit-pulse.com.au`;
+${t("share.msgOutro")}`;
     if (typeof navigator !== "undefined" && typeof navigator.share === "function") {
-      try { await navigator.share({ title:"World Cup Group Draw", text:message }); }   // link is in the message; no url param so it is not appended again
+      try { await navigator.share({ title:t("share.title"), text:message }); }   // link is in the message; no url param so it is not appended again
       catch(e){ if(e && e.name==="AbortError") return; }   // user cancelled the sheet, or share failed; ignore quietly
       return;
     }
@@ -1439,8 +1481,8 @@ Made by ProfitPulse. Every team at this World Cup is chasing the trophy; we help
   };
   return (
     <div className="share-invite">
-      <button className="btn btn-ghost share-btn" onClick={share}><Share2 size={16}/> Share invite</button>
-      {copied && <span className="share-copied"><Check size={14}/> Copied, paste it to your group</span>}
+      <button className="btn btn-ghost share-btn" onClick={share}><Share2 size={16}/> {t("share.button")}</button>
+      {copied && <span className="share-copied"><Check size={14}/> {t("share.copied")}</span>}
     </div>
   );
 }
@@ -1462,10 +1504,13 @@ function computePayouts(standings, pool){
 
 /* ----------------------------- TIME UTILS ------------------------- */
 function countdown(ms){ if(ms<=0) return {done:true}; const s=Math.floor(ms/1000); return {done:false,d:Math.floor(s/86400),h:Math.floor(s%86400/3600),m:Math.floor(s%3600/60),s:s%60}; }
-function fmtDate(ms){ try{ return new Date(ms).toLocaleString(undefined,{day:"numeric",month:"short",hour:"numeric",minute:"2-digit"}); }catch{ return new Date(ms).toDateString(); } }
+// getLocale() returns the chosen language's locale (undefined for English, so English output is
+// unchanged); only the language of the day/month names changes. The timezone is untouched: every
+// viewer still sees their own local time.
+function fmtDate(ms){ try{ return new Date(ms).toLocaleString(getLocale(),{day:"numeric",month:"short",hour:"numeric",minute:"2-digit"}); }catch{ return new Date(ms).toDateString(); } }
 // Kick-off in the viewer's OWN timezone (device default, no prompt), e.g. "Thu 11 Jun, 5:00 am AEST".
 // The short timezone label keeps it unambiguous which zone the time is shown in.
-function fmtKickoff(ms){ try{ return new Date(ms).toLocaleString(undefined,{weekday:"short",day:"numeric",month:"short",hour:"numeric",minute:"2-digit",timeZoneName:"short"}); }catch{ return fmtDate(ms); } }
+function fmtKickoff(ms){ try{ return new Date(ms).toLocaleString(getLocale(),{weekday:"short",day:"numeric",month:"short",hour:"numeric",minute:"2-digit",timeZoneName:"short"}); }catch{ return fmtDate(ms); } }
 
 /* --------------------------- LIVE FEED OVERLAY -------------------- */
 // The shared `matches` feed (read-only, anon) overlays the app's hardcoded fixtures.
@@ -1506,6 +1551,14 @@ const CSS = `
 .foot-credit{display:inline-flex;align-items:center;gap:7px;margin-top:8px;font-size:12px;font-weight:600;letter-spacing:.02em;color:rgba(251,247,236,.5);line-height:1}
 .foot-by{line-height:1}
 .foot-logo{height:26px;width:auto;display:block}
+/* Language picker (globe + native-name dropdown): on the landing page and again in the footer */
+.lang-picker{display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,.08);border:1px solid var(--line);border-radius:11px;padding:6px 9px;color:var(--cream);cursor:pointer}
+.lang-picker svg{flex:none;opacity:.85}
+.lang-picker .lang-caret{opacity:.6;margin-left:-3px}
+.lang-picker select{appearance:none;-webkit-appearance:none;background:transparent;border:none;color:var(--cream);font-family:'Outfit';font-weight:600;font-size:13px;padding:0 2px;cursor:pointer;outline:none}
+.lang-picker select option{color:#06160e}
+.home-lang{display:flex;justify-content:flex-end;margin-bottom:2px}
+.foot-lang{margin-bottom:12px}
 /* every ProfitPulse logo is a link to profit-pulse.com.au with a subtle hover */
 .brand-logo{cursor:pointer;text-decoration:none;transition:opacity .15s}
 .brand-logo:hover{opacity:.82}
