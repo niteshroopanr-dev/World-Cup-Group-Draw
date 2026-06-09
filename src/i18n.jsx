@@ -199,15 +199,18 @@ const translations = {
     "banner.liveNowish": "· live now-ish",
     "banner.allIn": "All group games are in 🎉",
     "banner.justPlayed": "Just played",
-    "banner.noResults": "No results entered yet",
-    "banner.noResultsSub": "Head to the {cup} tab to log scores.",
+    "banner.pointsLeader": "Points leader",
+    "banner.predsLeader": "Top predictor",
+    "banner.predsCorrect": "{n} correct",
+    "banner.predictNow": "Get your picks in",
+    "banner.predictCta": "The race is on. Lock in your picks before the first kick-off, top the predictions league, and the bragging rights are yours. Head to the {predict} tab.",
 
     // ranks
     "ranks.title": "Group standings",
     "ranks.projected": "projected",
     "ranks.live": "live",
     "ranks.notStarted": "not started",
-    "ranks.empty": "The draw is set. Once games kick off (or you fill in the {predict} tab), the group leaderboard comes alive.",
+    "ranks.empty": "The draw is set. Once games kick off, the group leaderboard comes alive.",
     "ranks.offTop": "{n} off top",
     "ranks.hint": "Scores reward wins, goal margins, clean sheets and giant-killing upsets across all of a member's teams.",
 
@@ -247,7 +250,7 @@ const translations = {
     "cup.advance": "Top two (highlighted) advance, plus the best third-placed sides.",
     "cup.fixtures": "Group {g} fixtures",
     "cup.mdX": "MD{n}",
-    "cup.hint": "Official scores from the live feed fill in automatically. Until then, anyone in the group can enter a score here, and results flow straight into both the real group table above and the group standings.",
+    "cup.hint": "Scores from the live feed fill in automatically and flow straight into both the real group table above and the group standings.",
 
     // knockouts
     "ko.r32": "Round of 32",
@@ -468,15 +471,10 @@ const translations = {
     "banner.liveNowish": "· casi en vivo",
     "banner.allIn": "Ya están todos los partidos del grupo 🎉",
     "banner.justPlayed": "Recién jugado",
-    "banner.noResults": "Aún no hay resultados",
-    "banner.noResultsSub": "Ve a la pestaña {cup} para anotar los marcadores.",
-
     "ranks.title": "Clasificación del grupo",
     "ranks.projected": "proyectada",
     "ranks.live": "en directo",
-    "ranks.notStarted": "sin empezar",
-    "ranks.empty": "El sorteo está listo. En cuanto rueden los partidos (o rellenes la pestaña {predict}), la clasificación del grupo cobra vida.",
-    "ranks.offTop": "a {n} del líder",
+    "ranks.notStarted": "sin empezar",    "ranks.offTop": "a {n} del líder",
     "ranks.hint": "La puntuación premia victorias, diferencias de goles, porterías a cero y sorpresas ante los grandes en todas las selecciones de cada miembro.",
 
     "squads.dupesPre": "Con más de 12 miembros, cada selección se reparte igual y las plantillas quedan parejas de fuerza, repartiendo primero por igual a las grandes y a las fuertes, así que algunas selecciones las tienen más de un miembro. Una etiqueta ",
@@ -508,8 +506,6 @@ const translations = {
     "cup.advance": "Los dos primeros (resaltados) avanzan, más los mejores terceros.",
     "cup.fixtures": "Partidos del Grupo {g}",
     "cup.mdX": "J{n}",
-    "cup.hint": "Los marcadores oficiales del directo se rellenan solos. Hasta entonces, cualquiera del grupo puede meter un marcador aquí, y los resultados pasan directos tanto a la tabla real de arriba como a la clasificación del grupo.",
-
     "ko.r32": "Dieciseisavos",
     "ko.r16": "Octavos",
     "ko.qf": "Cuartos de final",
@@ -724,15 +720,10 @@ const translations = {
     "banner.liveNowish": "· en direct, à peu près",
     "banner.allIn": "Tous les matchs du groupe sont joués 🎉",
     "banner.justPlayed": "Vient de se jouer",
-    "banner.noResults": "Aucun résultat saisi pour l'instant",
-    "banner.noResultsSub": "Va dans l'onglet {cup} pour saisir les scores.",
-
     "ranks.title": "Classement du groupe",
     "ranks.projected": "projeté",
     "ranks.live": "en direct",
-    "ranks.notStarted": "pas commencé",
-    "ranks.empty": "Le tirage est fait. Dès que les matchs commencent (ou que tu remplis l'onglet {predict}), le classement du groupe prend vie.",
-    "ranks.offTop": "à {n} du leader",
+    "ranks.notStarted": "pas commencé",    "ranks.offTop": "à {n} du leader",
     "ranks.hint": "Le score récompense les victoires, les écarts de buts, les clean sheets et les exploits face aux gros, sur toutes les équipes d'un membre.",
 
     "squads.dupesPre": "À plus de 12 membres, chaque équipe est quand même attribuée et les effectifs sont équilibrés pour être à peu près de force égale, en répartissant d'abord les grosses et les solides de façon égale, donc certaines équipes sont détenues par plus d'un membre. Une étiquette ",
@@ -764,8 +755,6 @@ const translations = {
     "cup.advance": "Les deux premiers (surlignés) passent, plus les meilleurs troisièmes.",
     "cup.fixtures": "Matchs du Groupe {g}",
     "cup.mdX": "J{n}",
-    "cup.hint": "Les scores officiels du direct se remplissent tout seuls. En attendant, n'importe qui dans le groupe peut saisir un score ici, et les résultats vont directement dans le vrai tableau du groupe ci-dessus comme dans le classement du groupe.",
-
     "ko.r32": "Seizièmes",
     "ko.r16": "Huitièmes",
     "ko.qf": "Quarts de finale",
@@ -981,15 +970,10 @@ const translations = {
     "banner.liveNowish": "· quasi live",
     "banner.allIn": "Tutte le partite del gruppo sono finite 🎉",
     "banner.justPlayed": "Appena giocata",
-    "banner.noResults": "Ancora nessun risultato inserito",
-    "banner.noResultsSub": "Vai alla scheda {cup} per inserire i risultati.",
-
     "ranks.title": "Classifica del gruppo",
     "ranks.projected": "proiettata",
     "ranks.live": "in diretta",
-    "ranks.notStarted": "non iniziata",
-    "ranks.empty": "Il sorteggio è fatto. Appena iniziano le partite (o compili la scheda {predict}), la classifica del gruppo prende vita.",
-    "ranks.offTop": "a {n} dalla vetta",
+    "ranks.notStarted": "non iniziata",    "ranks.offTop": "a {n} dalla vetta",
     "ranks.hint": "Il punteggio premia vittorie, scarti di gol, porte inviolate e colpacci contro le grandi, su tutte le squadre di un membro.",
 
     "squads.dupesPre": "Con più di 12 membri, ogni squadra viene comunque assegnata e le rose sono bilanciate per essere più o meno di pari forza, distribuendo prima in parti uguali le grandi e le forti, così alcune squadre finiscono a più di un membro. Un'etichetta ",
@@ -1021,8 +1005,6 @@ const translations = {
     "cup.advance": "Le prime due (evidenziate) passano, più le migliori terze.",
     "cup.fixtures": "Partite del Girone {g}",
     "cup.mdX": "G{n}",
-    "cup.hint": "I punteggi ufficiali del live si compilano da soli. Fino ad allora, chiunque nel gruppo può inserire un risultato qui, e i risultati finiscono dritti sia nella classifica reale del girone qui sopra sia nella classifica del gruppo.",
-
     "ko.r32": "Sedicesimi",
     "ko.r16": "Ottavi",
     "ko.qf": "Quarti di finale",
@@ -1237,15 +1219,10 @@ const translations = {
     "banner.liveNowish": "· 正在直播中",
     "banner.allIn": "所有小组赛都结束了 🎉",
     "banner.justPlayed": "刚刚结束",
-    "banner.noResults": "还没有录入结果",
-    "banner.noResultsSub": "去「{cup}」标签录入比分。",
-
     "ranks.title": "群组排名",
     "ranks.projected": "预测中",
     "ranks.live": "实时",
-    "ranks.notStarted": "未开始",
-    "ranks.empty": "抽签已定。比赛一开打（或你填好「{predict}」标签），群组积分榜就活起来了。",
-    "ranks.offTop": "落后榜首 {n} 分",
+    "ranks.notStarted": "未开始",    "ranks.offTop": "落后榜首 {n} 分",
     "ranks.hint": "得分会奖励胜利、净胜球、零封以及以小搏大的爆冷，涵盖一名成员的所有球队。",
 
     "squads.dupesPre": "超过 12 名成员时，每支球队仍会全部分配，各阵容尽量分得实力相当，先把顶级和强队平均分开，所以有些球队会由不止一名成员持有。一个",
@@ -1277,8 +1254,6 @@ const translations = {
     "cup.advance": "前两名（高亮）出线，外加成绩最好的几个第三名。",
     "cup.fixtures": "{g} 组赛程",
     "cup.mdX": "第{n}轮",
-    "cup.hint": "实时数据源的官方比分会自动填入。在那之前，群组里任何人都可以在这里录入比分，结果会直接同步到上方的真实小组积分榜和群组排名。",
-
     "ko.r32": "32 强赛",
     "ko.r16": "16 强赛",
     "ko.qf": "四分之一决赛",
@@ -1493,15 +1468,10 @@ const translations = {
     "banner.liveNowish": "· अभी लाइव जैसा",
     "banner.allIn": "ग्रुप के सारे मैच हो गए 🎉",
     "banner.justPlayed": "अभी-अभी खेला",
-    "banner.noResults": "अभी कोई नतीजा दर्ज नहीं",
-    "banner.noResultsSub": "स्कोर डालने के लिए {cup} टैब पर जाओ।",
-
     "ranks.title": "ग्रुप रैंकिंग",
     "ranks.projected": "अनुमानित",
     "ranks.live": "लाइव",
-    "ranks.notStarted": "शुरू नहीं हुआ",
-    "ranks.empty": "ड्रॉ तय है। मैच शुरू होते ही (या तुम {predict} टैब भर दो), ग्रुप लीडरबोर्ड जी उठता है।",
-    "ranks.offTop": "टॉप से {n} पीछे",
+    "ranks.notStarted": "शुरू नहीं हुआ",    "ranks.offTop": "टॉप से {n} पीछे",
     "ranks.hint": "स्कोर जीत, गोल अंतर, क्लीन शीट और बड़ी टीमों को हराने वाले उलटफेर को इनाम देता है, एक मेंबर की सभी टीमों पर।",
 
     "squads.dupesPre": "12 से ज़्यादा मेंबर होने पर भी हर टीम बँटती है और दस्ते लगभग बराबर ताकत के रखे जाते हैं, पहले एलीट और मज़बूत टीमों को बराबर बाँटकर, तो कुछ टीमें एक से ज़्यादा मेंबर के पास होती हैं। एक ",
@@ -1533,8 +1503,6 @@ const translations = {
     "cup.advance": "ऊपर की दो (हाइलाइट की हुई) आगे बढ़ती हैं, साथ में सबसे अच्छी तीसरे नंबर वाली टीमें।",
     "cup.fixtures": "ग्रुप {g} के मैच",
     "cup.mdX": "दौर {n}",
-    "cup.hint": "लाइव फ़ीड से आधिकारिक स्कोर अपने-आप भर जाते हैं। तब तक, ग्रुप का कोई भी यहाँ स्कोर डाल सकता है, और नतीजे सीधे ऊपर की असली ग्रुप टेबल और ग्रुप रैंकिंग दोनों में चले जाते हैं।",
-
     "ko.r32": "राउंड ऑफ़ 32",
     "ko.r16": "राउंड ऑफ़ 16",
     "ko.qf": "क्वार्टर फ़ाइनल",
@@ -1750,15 +1718,10 @@ const translations = {
     "banner.liveNowish": "· σχεδόν ζωντανά",
     "banner.allIn": "Όλοι οι αγώνες των ομίλων έγιναν 🎉",
     "banner.justPlayed": "Μόλις παίχτηκε",
-    "banner.noResults": "Δεν καταχωρήθηκαν αποτελέσματα ακόμη",
-    "banner.noResultsSub": "Πήγαινε στην καρτέλα {cup} για να βάλεις σκορ.",
-
     "ranks.title": "Κατάταξη ομάδας",
     "ranks.projected": "προβλεπόμενη",
     "ranks.live": "ζωντανά",
-    "ranks.notStarted": "δεν ξεκίνησε",
-    "ranks.empty": "Η κλήρωση είναι έτοιμη. Μόλις αρχίσουν οι αγώνες (ή συμπληρώσεις την καρτέλα {predict}), η κατάταξη της ομάδας ζωντανεύει.",
-    "ranks.offTop": "{n} από την κορυφή",
+    "ranks.notStarted": "δεν ξεκίνησε",    "ranks.offTop": "{n} από την κορυφή",
     "ranks.hint": "Το σκορ ανταμείβει νίκες, διαφορές τερμάτων, ανέπαφες εστίες και ανατροπές κόντρα στους μεγάλους, σε όλες τις ομάδες ενός μέλους.",
 
     "squads.dupesPre": "Με πάνω από 12 μέλη, κάθε ομάδα και πάλι μοιράζεται και τα ρόστερ ισορροπούν ώστε να είναι περίπου ίδιας δύναμης, μοιράζοντας πρώτα ισόποσα τις μεγάλες και τις δυνατές, οπότε κάποιες ομάδες τις έχουν πάνω από ένα μέλος. Μια ετικέτα ",
@@ -1790,8 +1753,6 @@ const translations = {
     "cup.advance": "Οι δύο πρώτες (τονισμένες) προκρίνονται, συν οι καλύτερες τρίτες.",
     "cup.fixtures": "Αγώνες Ομίλου {g}",
     "cup.mdX": "Αγ.{n}",
-    "cup.hint": "Τα επίσημα σκορ από το ζωντανό φιντ συμπληρώνονται μόνα τους. Μέχρι τότε, οποιοσδήποτε στην ομάδα μπορεί να βάλει σκορ εδώ, και τα αποτελέσματα πάνε κατευθείαν τόσο στον πραγματικό πίνακα του ομίλου παραπάνω όσο και στην κατάταξη της ομάδας.",
-
     "ko.r32": "Φάση των 32",
     "ko.r16": "Φάση των 16",
     "ko.qf": "Προημιτελικά",

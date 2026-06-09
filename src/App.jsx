@@ -468,11 +468,7 @@ export default function WorldCupFamilyDraw(){
     }
   };
   const saveGroup = async (g) => { setGroup(g); await store.setGroup(g.code, g); };
-  // Per-row writes: a score or a pick touches one row, not the whole group/preds blob.
-  const saveResult = async (fxId, h, a) => {
-    setGroup(g => { const results={...g.results}; if(h===null) delete results[fxId]; else results[fxId]={h,a}; return {...g, results}; });
-    if(group){ if(h===null) await store.clearResult(group.code, fxId); else await store.setResult(group.code, fxId, h, a); }
-  };
+  // Per-row write: a pick touches one row, not the whole preds blob.
   const savePick = async (memId, fxId, pick) => {
     setPreds(prev => { const cur=prev[memId]?{...prev[memId]}:{}; if(pick==null) delete cur[fxId]; else cur[fxId]=pick; return {...prev, [memId]:cur}; });
     if(group){ if(pick==null) await store.clearPick(group.code, memId, fxId); else await store.setPick(group.code, memId, fxId, pick); }
@@ -496,7 +492,7 @@ export default function WorldCupFamilyDraw(){
       {view==="drawing" && group && <Drawing onDone={()=>setView("ceremony")}/>}
       {view==="ceremony" && group && <Ceremony group={group} fire={fire} onEnter={()=>openGroup(group)}/>}
       {view==="group" && group && <GroupView group={group} preds={preds} onPick={savePick} mine={mine} toggleMine={toggleMine} isCreator={isCreator} matches={matches} knockouts={knockouts}
-        onCeremony={()=>setView("ceremony")} saveGroup={saveGroup} saveResult={saveResult} exit={()=>{setGroup(null);setView("home");}}/>}
+        onCeremony={()=>setView("ceremony")} saveGroup={saveGroup} exit={()=>{setGroup(null);setView("home");}}/>}
       <footer className="foot">
         {view!=="drawing" && <LangPicker className="foot-lang"/>}
         <div className="foot-note">{t("foot.note")}</div>
@@ -888,7 +884,7 @@ function Ceremony({ group, onEnter, fire }){
 }
 
 /* ---------------------------- GROUP VIEW -------------------------- */
-function GroupView({ group, preds, onPick, mine, toggleMine, saveGroup, saveResult, exit, isCreator, onCeremony, matches, knockouts }){
+function GroupView({ group, preds, onPick, mine, toggleMine, saveGroup, exit, isCreator, onCeremony, matches, knockouts }){
   const t = useT();
   const [tab, setTab] = useState("ranks");
   const [project, setProject] = useState(false);
@@ -928,7 +924,18 @@ function GroupView({ group, preds, onPick, mine, toggleMine, saveGroup, saveResu
     return { nextFx: unplayed[0]||null, lastFx: played[0]||null };
   }, [results, matches, now]);
 
-  const setResult = (fxId,h,a) => saveResult(fxId, h, a);
+  // Predictions leader for the banner: the same standings the Predict tab computes (most correct, then
+  // most called, then name). Display only; reads the predictions, does not change how they are scored.
+  // Null until someone has at least one correct pick.
+  const predLeader = useMemo(()=>{
+    const rows = group.members.map(m=>{
+      let correct=0, called=0;
+      for(const fx of FIXTURES){ const r=results[fx.id]; if(!r) continue; const pk=preds[m.id]&&preds[m.id][fx.id]; if(!pk) continue; called++; if(outcome(r)===pk) correct++; }
+      return { ...m, correct, called };
+    });
+    rows.sort((a,b)=> b.correct-a.correct || b.called-a.called || a.name.localeCompare(b.name));
+    return (rows[0] && rows[0].correct>0) ? rows[0] : null;
+  }, [group, preds, results]);
 
   const tabs = [
     {k:"ranks", label:t("tab.ranks"), icon:<Trophy size={16}/>},
@@ -946,7 +953,7 @@ function GroupView({ group, preds, onPick, mine, toggleMine, saveGroup, saveResu
         <CodePill code={group.code}/>
       </div>
       <ShareInvite code={group.code}/>
-      <Banner nextFx={nextFx} lastFx={lastFx} now={now} leader={anyPlayed?standings[0]:null} results={results} matches={matches}/>
+      <Banner nextFx={nextFx} lastFx={lastFx} now={now} leader={anyPlayed?standings[0]:null} predLeader={predLeader} results={results} matches={matches}/>
       {isCreator && <button className="replay-draw" onClick={onCeremony}><Sparkles size={14}/> {t("group.watchAgain")}</button>}
       <div className="tabs">
         {tabs.map(t=>(<button key={t.k} className={"tab"+(tab===t.k?" on":"")} onClick={()=>setTab(t.k)}>{t.icon}<span>{t.label}</span></button>))}
@@ -960,7 +967,7 @@ function GroupView({ group, preds, onPick, mine, toggleMine, saveGroup, saveResu
       {tab==="ranks" && <RanksTab standings={standings} titles={titles} anyPlayed={anyPlayed} pool={group.pool} project={project}/>}
       {tab==="squads" && <SquadsTab standings={standings} titles={titles} anyPlayed={anyPlayed} teamHolders={teamHolders} openCard={openCard} setOpenCard={setOpenCard}/>}
       {tab==="predict" && <PredictTab group={group} preds={preds} onPick={onPick} mine={mine} toggleMine={toggleMine} now={now} results={results} matches={matches}/>}
-      {tab==="cup" && <CupTab group={group} setResult={setResult} nextFx={nextFx} results={results} matches={matches} knockouts={knockouts} now={now}/>}
+      {tab==="cup" && <CupTab group={group} nextFx={nextFx} results={results} matches={matches} knockouts={knockouts} now={now}/>}
       {tab==="pot" && <PotTab group={group} standings={standings} saveGroup={saveGroup} project={project} anyPlayed={anyPlayed}/>}
     </div>
   );
@@ -983,7 +990,7 @@ function computeTitles(standings, anyPlayed, group, effResults){
 }
 
 /* ------------------------------ BANNER ---------------------------- */
-function Banner({ nextFx, lastFx, now, leader, results, matches }){
+function Banner({ nextFx, lastFx, now, leader, predLeader, results, matches }){
   const t = useT();
   const cd = nextFx ? countdown(koOf(nextFx, matches) - now) : null;
   return (
@@ -998,13 +1005,12 @@ function Banner({ nextFx, lastFx, now, leader, results, matches }){
             <div className="bcell-sub">{t("common.groupX",{g:nextFx.grp})} · {fmtKickoff(koOf(nextFx, matches))}</div>
           </div>
         ) : <div className="bcell next"><div className="bcell-lbl">{t("banner.allIn")}</div></div>}
-        {lastFx ? (
-          <div className="bcell last">
-            <div className="bcell-lbl">{t("banner.justPlayed")}</div>
-            <div className="match"><Side id={lastFx.home}/><span className="score display">{results[lastFx.id]?`${results[lastFx.id].h}–${results[lastFx.id].a}`:""}</span><Side id={lastFx.away} right/></div>
-            <div className="bcell-sub">{t("common.groupX",{g:lastFx.grp})} · {fmtKickoff(koOf(lastFx, matches))}</div>
+        {(leader || predLeader) ? (
+          <div className="bcell last leaders">
+            {leader && <div className="lead"><div className="lead-lbl">{t("banner.pointsLeader")}</div><div className="lead-name">{leader.name}</div><div className="lead-val">{leader.pts} {t("common.pts")}</div></div>}
+            {predLeader && <div className="lead"><div className="lead-lbl">{t("banner.predsLeader")}</div><div className="lead-name">{predLeader.name}</div><div className="lead-val">{t("banner.predsCorrect",{n:predLeader.correct})}</div></div>}
           </div>
-        ) : <div className="bcell last"><div className="bcell-lbl">{t("banner.noResults")}</div><div className="bcell-sub">{t("banner.noResultsSub",{cup:t("tab.cup")})}</div></div>}
+        ) : <div className="bcell last"><div className="bcell-lbl">{t("banner.predictNow")}</div><div className="bcell-sub">{t("banner.predictCta",{predict:t("tab.predict")})}</div></div>}
       </div>
     </div>
   );
@@ -1021,7 +1027,7 @@ function RanksTab({ standings, titles, anyPlayed, pool, project }){
     <div>
       <div className="section-head"><span className="display sh-title">{t("ranks.title")}</span>
         <span className="sh-sub">{t("group.membersCount",{n:standings.length})} · {project?t("ranks.projected"):(anyPlayed?t("ranks.live"):t("ranks.notStarted"))}</span></div>
-      {!anyPlayed && <p className="empty-note"><Sparkles size={15}/> {t("ranks.empty",{predict:t("tab.predict")})}</p>}
+      {!anyPlayed && <p className="empty-note"><Sparkles size={15}/> {t("ranks.empty")}</p>}
       <div className="board">
         {standings.map((s,i)=>(
           <div key={s.id} className={"lb-row"+(s.rank===1&&anyPlayed?" lead":"")}>
@@ -1101,6 +1107,11 @@ function PredictTab({ group, preds, onPick, mine, toggleMine, now, results, matc
   const t = useT();
   const members = group.members;
   const managed = members.filter(m=>mine.includes(m.id));
+  // Display-only: which member(s) hold each team, read straight from the existing allocation (the same
+  // group.alloc the Squads tab and leaderboard use). With more than twelve members a team can be held
+  // by several people, so we keep a list and join the names. Nothing here changes the allocation.
+  const holders = useMemo(()=>{ const m={}; members.forEach(mem=>(group.alloc[mem.id]||[]).forEach(tid=>{ (m[tid]=m[tid]||[]).push(mem.name); })); return m; }, [group]);
+  const holderNames = (tid) => { const a=holders[tid]; return (a && a.length) ? a.join(", ") : "-"; };
   const setPick = (memId, fx, p) => {
     if(now>=koOf(fx,matches) || results[fx.id]) return;
     const next = (preds[memId]||{})[fx.id]===p ? null : p; // tapping the same pick toggles it off
@@ -1174,6 +1185,11 @@ function PredictTab({ group, preds, onPick, mine, toggleMine, now, results, matc
                     <span className="fx-mid">{t("common.versus")}</span>
                     <div className="fx-team r"><span>{TEAMS[fx.away].n}</span><span className="flag">{TEAMS[fx.away].f}</span></div>
                   </div>
+                  <div className="fx-holders">
+                    <span className="fx-holder">{holderNames(fx.home)}</span>
+                    <span className="fx-mid">{t("common.versus")}</span>
+                    <span className="fx-holder r">{holderNames(fx.away)}</span>
+                  </div>
                   <Chances fx={fx} matches={matches}/>
                   {managed.map(m=>{
                     const pick = (preds[m.id]||{})[fx.id];
@@ -1237,7 +1253,7 @@ function PredictTab({ group, preds, onPick, mine, toggleMine, now, results, matc
 /* ------------------------------- CUP ------------------------------ */
 // Read-only match card for the combined "All upcoming" list: same layout as the group fixtures and
 // the predict rows (teams, group, local kickoff, chances line), but with no score entry.
-function UpcomingFixture({ fx, matches }){
+function UpcomingFixture({ fx, matches, holderLine }){
   const t = useT();
   return (
     <div className="fx">
@@ -1247,15 +1263,25 @@ function UpcomingFixture({ fx, matches }){
         <span className="fx-mid">{t("common.versus")}</span>
         <div className="fx-team r"><span>{TEAMS[fx.away].n}</span><span className="flag">{TEAMS[fx.away].f}</span></div>
       </div>
+      <div className="fx-holders">
+        <span className="fx-holder">{holderLine(fx.home)}</span>
+        <span className="fx-mid">{t("common.versus")}</span>
+        <span className="fx-holder r">{holderLine(fx.away)}</span>
+      </div>
       <Chances fx={fx} matches={matches}/>
     </div>
   );
 }
-function CupTab({ group, setResult, nextFx, results, matches, knockouts, now }){
+function CupTab({ group, nextFx, results, matches, knockouts, now }){
   const t = useT();
   const [sel, setSel] = useState(()=> nextFx ? nextFx.grp : "A");
   const isKO = sel==="KO";
   const isUp = sel==="UP";
+  // Display-only: which member(s) hold each team, read straight from the existing allocation (the same
+  // group.alloc the Squads tab and leaderboard use). Joined with commas when a team is shared (>12
+  // members); empty string when somehow unheld, so the row just shows nothing extra. Never changes alloc.
+  const holders = useMemo(()=>{ const m={}; group.members.forEach(mem=>(group.alloc[mem.id]||[]).forEach(tid=>{ (m[tid]=m[tid]||[]).push(mem.name); })); return m; }, [group]);
+  const holderLine = (tid) => { const a=holders[tid]; return (a && a.length) ? a.join(", ") : ""; };
   const table = (isKO||isUp) ? [] : groupStandings(sel, results);
   const fixtures = (isKO||isUp) ? [] : FIXTURES.filter(fx=>fx.grp===sel).sort((a,b)=>koOf(a,matches)-koOf(b,matches));
   // Combined "All upcoming": every group + knockout match not yet kicked off, sorted by real kickoff
@@ -1282,8 +1308,8 @@ function CupTab({ group, setResult, nextFx, results, matches, knockouts, now }){
             ? <p className="empty-note"><Sparkles size={15}/> {t("cup.upcomingEmpty")}</p>
             : <div className="fixtures">
                 {upcomingAll.map(it => it.kind==="ko"
-                  ? <KoMatch key={"ko"+it.row.id} row={it.row}/>
-                  : <UpcomingFixture key={it.fx.id} fx={it.fx} matches={matches}/>)}
+                  ? <KoMatch key={"ko"+it.row.id} row={it.row} holderLine={holderLine}/>
+                  : <UpcomingFixture key={it.fx.id} fx={it.fx} matches={matches} holderLine={holderLine}/>)}
               </div>}
           <p className="hint"><Info size={13}/> {t("cup.upcomingHint")}</p>
         </div>
@@ -1291,13 +1317,16 @@ function CupTab({ group, setResult, nextFx, results, matches, knockouts, now }){
       <div className="std-card">
         <div className="std-title">{t("common.groupX",{g:sel})}</div>
         <div className="std-row std-h"><span className="std-pos"></span><span className="std-team">{t("cup.team")}</span><span>{t("abbr.p")}</span><span>{t("abbr.w")}</span><span>{t("abbr.d")}</span><span>{t("abbr.l")}</span><span>{t("abbr.gd")}</span><span className="std-pts">{t("abbr.pts")}</span></div>
-        {table.map((row,i)=>(
+        {table.map((row,i)=>{
+          const holder = holderLine(row.id);
+          return (
           <div className={"std-row"+(i<2?" qual":"")} key={row.id}>
             <span className="std-pos">{i+1}</span>
-            <span className="std-team"><span className="t-flag sm">{TEAMS[row.id].f}</span><span className="std-name">{TEAMS[row.id].n}</span></span>
+            <span className="std-team"><span className="t-flag sm">{TEAMS[row.id].f}</span><span className="std-teaminfo"><span className="std-name">{TEAMS[row.id].n}</span>{holder && <span className="std-holder">{holder}</span>}</span></span>
             <span>{row.pld}</span><span>{row.w}</span><span>{row.d}</span><span>{row.l}</span><span>{row.gd>=0?"+":""}{row.gd}</span><span className="std-pts">{row.pts}</span>
           </div>
-        ))}
+          );
+        })}
         <div className="std-foot">{t("cup.advance")}</div>
       </div>
 
@@ -1315,8 +1344,13 @@ function CupTab({ group, setResult, nextFx, results, matches, knockouts, now }){
                 <div className="fx-team"><span className="flag">{TEAMS[fx.home].f}</span><span>{TEAMS[fx.home].n}</span></div>
                 {showOfficial
                   ? <span className="score display">{off.h}–{off.a}</span>
-                  : <ScoreEntry fx={fx} res={res} onSet={setResult}/>}
+                  : <span className="fx-mid">{t("common.versus")}</span>}
                 <div className="fx-team r"><span>{TEAMS[fx.away].n}</span><span className="flag">{TEAMS[fx.away].f}</span></div>
+              </div>
+              <div className="fx-holders">
+                <span className="fx-holder">{holderLine(fx.home)}</span>
+                <span className="fx-mid">{t("common.versus")}</span>
+                <span className="fx-holder r">{holderLine(fx.away)}</span>
               </div>
             </div>
           );
@@ -1356,13 +1390,18 @@ function KoTeam({ tok, right }){
     ? <div className="fx-team r"><span>{team.n}</span><span className="flag">{team.f}</span></div>
     : <div className="fx-team"><span className="flag">{team.f}</span><span>{team.n}</span></div>;
 }
-function KoMatch({ row }){
+function KoMatch({ row, holderLine }){
   const t = useT();
   const ko = row.kickoff ? Date.parse(row.kickoff) : NaN;
   const completed = (row.status||"")==="completed";
   const hasScore = row.home_score!=null && row.away_score!=null;
   const live = hasScore && isLiveStatus(row.status);
   const showChances = !completed && row.home_odds!=null && row.draw_odds!=null && row.away_odds!=null;
+  // Owner only for a slot that is an actual team; placeholders (Winner of Match X, a group position,
+  // otherwise undecided) have no holder, so that side shows nothing. holderLine is passed only in the
+  // "All upcoming" list, so the standalone Knockouts view is unchanged.
+  const homeOwner = (holderLine && TEAMS[row.home_team]) ? holderLine(row.home_team) : "";
+  const awayOwner = (holderLine && TEAMS[row.away_team]) ? holderLine(row.away_team) : "";
   return (
     <div className={"fx"+(hasScore?" done":"")}>
       <div className="fx-top"><span className="fx-grp">{KO_STAGE_TAG[row.stage]?t(KO_STAGE_TAG[row.stage]):""}</span>
@@ -1372,6 +1411,17 @@ function KoMatch({ row }){
         <span className="fx-mid">{t("common.versus")}</span>
         <KoTeam tok={row.away_team} right/>
       </div>
+      {(homeOwner && awayOwner) ? (
+        <div className="fx-holders">
+          <span className="fx-holder">{homeOwner}</span>
+          <span className="fx-mid">{t("common.versus")}</span>
+          <span className="fx-holder r">{awayOwner}</span>
+        </div>
+      ) : (homeOwner || awayOwner) ? (
+        <div className="fx-holders">
+          <span className={"fx-holder"+(awayOwner ? " r" : "")}>{homeOwner || awayOwner}</span>
+        </div>
+      ) : null}
       {showChances && (
         <div className="chances">
           <span className="chc">{TEAMS[row.home_team]?.f && <span className="flag">{TEAMS[row.home_team].f}</span>} <b>{row.home_odds}%</b></span>
@@ -1403,20 +1453,6 @@ function KnockoutList({ knockouts }){
         );
       })}
       <p className="hint"><Info size={13}/> {t("ko.hint")}</p>
-    </div>
-  );
-}
-function ScoreEntry({ fx, res, onSet }){
-  const t = useT();
-  const [h,setH]=useState(res?String(res.h):""); const [a,setA]=useState(res?String(res.a):"");
-  useEffect(()=>{ setH(res?String(res.h):""); setA(res?String(res.a):""); },[res, fx.id]);
-  const commit=(hv,av)=>{ if(hv!==""&&av!=="") onSet(fx.id, Math.max(0,+hv||0), Math.max(0,+av||0)); };
-  return (
-    <div className="score-entry">
-      <input className="sc" inputMode="numeric" value={h} placeholder="–" onChange={e=>{const v=e.target.value.replace(/\D/g,"").slice(0,2);setH(v);commit(v,a);}}/>
-      <span className="dash">:</span>
-      <input className="sc" inputMode="numeric" value={a} placeholder="–" onChange={e=>{const v=e.target.value.replace(/\D/g,"").slice(0,2);setA(v);commit(h,v);}}/>
-      {res && <button className="clr" onClick={()=>onSet(fx.id,null)} title={t("common.clear")}><X size={13}/></button>}
     </div>
   );
 }
@@ -1713,6 +1749,13 @@ const CSS = `
 .bcell{background:rgba(255,255,255,.05);border-radius:13px;padding:12px}
 .bcell-lbl{font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--gold);font-weight:700;margin-bottom:7px}
 .bcell-sub{font-size:11px;color:rgba(251,247,236,.55);margin-top:6px}
+/* Two leaders side by side in the banner's right cell (points leader + top predictor) */
+.bcell.leaders{display:flex;gap:10px}
+.lead{flex:1;min-width:0}
+.lead+.lead{border-left:1px solid var(--line);padding-left:10px}
+.lead-lbl{font-size:9px;letter-spacing:.07em;text-transform:uppercase;color:var(--gold);font-weight:700;line-height:1.25;margin-bottom:4px}
+.lead-name{font-weight:700;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lead-val{font-size:11px;color:rgba(251,247,236,.6);margin-top:2px}
 .match{display:flex;align-items:center;gap:8px;justify-content:center}
 .side{display:flex;align-items:center;gap:5px;font-weight:700;font-size:13px}
 .side.r{flex-direction:row-reverse}
@@ -1777,11 +1820,10 @@ const CSS = `
 .fx-team span:not(.flag){white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .fx-team.r{flex-direction:row-reverse;text-align:right}
 .fx-mid{color:rgba(251,247,236,.4);font-size:12px;font-weight:700;flex:none}
-.score-entry{display:flex;align-items:center;gap:4px;flex:none;position:relative}
-.sc{width:38px;height:42px;text-align:center;background:rgba(255,255,255,.08);border:1.5px solid var(--line);border-radius:10px;color:var(--cream);font-family:'Anton';font-size:20px;outline:none}
-.sc:focus{border-color:var(--gold)}
-.dash{color:rgba(251,247,236,.4);font-weight:700}
-.clr{position:absolute;right:-21px;background:rgba(255,122,89,.2);border:none;color:#ff9b7d;width:18px;height:18px;border-radius:50%;display:grid;place-items:center;cursor:pointer}
+/* Quiet second line under the team names: who holds each team, same left-versus-right layout */
+.fx-holders{display:flex;align-items:center;gap:8px;margin-top:4px}
+.fx-holder{flex:1;min-width:0;font-size:11.5px;color:rgba(251,247,236,.5);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fx-holder.r{text-align:right}
 .pred-row{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:11px;padding-top:11px;border-top:1px solid rgba(255,255,255,.07)}
 .pred-lbl{font-size:11px;color:rgba(251,247,236,.5);font-weight:600}
 .pick-line{display:flex;align-items:center;gap:10px;margin-top:9px;padding-top:9px;border-top:1px solid rgba(255,255,255,.06)}
@@ -1835,7 +1877,11 @@ const CSS = `
 .std-row span{text-align:center}
 .std-pos{color:rgba(251,247,236,.5);text-align:center}
 .std-team{display:flex;align-items:center;gap:7px;text-align:left!important}
+.std-teaminfo{display:flex;flex-direction:column;min-width:0;flex:1}
 .std-name{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:600}
+/* Quiet holder line beneath the team name, inside the same cell so the stat columns are untouched */
+.std-team .std-name,.std-team .std-holder{text-align:left}
+.std-holder{font-size:10.5px;font-weight:500;color:rgba(251,247,236,.5);line-height:1.25;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .std-pts{font-weight:800;color:var(--gold)}
 .std-row.qual .std-pos{color:#7be08c;font-weight:800}
 .std-row.qual{background:linear-gradient(90deg,rgba(92,196,107,.08),transparent)}
