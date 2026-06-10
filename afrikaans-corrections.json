@@ -1,0 +1,256 @@
+{
+  "af": {
+    "banner.liveNowish": {
+      "from": "· amper regstreeks",
+      "to": "· so te sê regstreeks"
+    },
+    "banner.predictCta": {
+      "from": "Die wedloop is aan. Sluit jou voorspellings voor die eerste afskop, klim boontoe op die voorspellingsliga, en die spogregte is joune. Gaan na die {predict}-oortjie.",
+      "to": "Die wedloop is aan. Kry jou voorspellings in voor die eerste afskop, klim boaan die voorspellingsliga, en die spogregte is joune. Gaan na die {predict}-oortjie."
+    },
+    "banner.predictNow": {
+      "from": "Sit jou voorspellings in",
+      "to": "Kry jou voorspellings in"
+    },
+    "cer.doneLede": {
+      "from": "Al die spanne is tussen {n} lede uitgedeel.",
+      "to": "Al die spanne is onder {n} lede uitgedeel."
+    },
+    "cer.modeLede": {
+      "from": "Maak almal om een skerm bymekaar, kies 'n styl en tik deur om te wys wie wie kry.",
+      "to": "Kry almal om een skerm bymekaar, kies ’n styl en tik deur om te sien wie watter span kry."
+    },
+    "cer.strongestPre": {
+      "from": " Die sterkste stel op papier gaan aan ",
+      "to": " Die sterkste spanstel op papier gaan aan "
+    },
+    "cer.teamByTeamD": {
+      "from": "Een span op 'n slag, rondom die groep, wat opbou tot by die grotes.",
+      "to": "Een span op ’n slag, deur die groep, en dan bou dit op na die grotes."
+    },
+    "cer.wholeSquads": {
+      "from": "Hele stelle",
+      "to": "Volle spanstelle"
+    },
+    "cer.wholeSquadsD": {
+      "from": "Elke lid se volle stel spanne, een lid op 'n slag.",
+      "to": "Elke lid se volle spanstel, een lid op ’n slag."
+    },
+    "common.runDraw": {
+      "from": "Doen die trekking",
+      "to": "Begin die trekking"
+    },
+    "create.hint12": {
+      "from": "Die ideale getal: al 48 spanne, presies vier elk, geen duplikate nie, met die spanne gebalanseer om omtrent ewe sterk te wees.",
+      "to": "Die ideale getal: al 48 spanne, presies vier elk, geen duplikate nie, met die spanstelle gebalanseer om omtrent ewe sterk te wees."
+    },
+    "create.hintOver12": {
+      "from": "Elkeen kry vier spanne en al 48 is gedek. Die spanne word gebalanseer om omtrent ewe sterk te wees, deur eers die groot en sterk spanne gelyk te versprei, so 'n paar spanne word deur twee of meer mense gehou.",
+      "to": "Elkeen kry vier spanne en al 48 is gedek. Die spanstelle word gebalanseer om omtrent ewe sterk te wees; die elite- en sterk spanne word eers regverdig versprei, so ’n paar spanne word deur twee of meer mense gehou."
+    },
+    "create.hintUnder12": {
+      "from": "Al 48 spanne word sonder duplikate uitgedeel, so elke lid kry omtrent {per}, almal ten minste vier, met die spanne gebalanseer om omtrent ewe sterk te wees.",
+      "to": "Al 48 spanne word sonder duplikate uitgedeel, so elke lid kry omtrent {per}, almal minstens vier, met die spanstelle gebalanseer om omtrent ewe sterk te wees."
+    },
+    "create.namePlaceholder": {
+      "from": "bv. Die Spanne se Wêreldbeker",
+      "to": "bv. Ons Wêreldbeker-groep"
+    },
+    "cup.allUpcoming": {
+      "from": "Almal wat kom",
+      "to": "Alles wat nog kom"
+    },
+    "cup.hint": {
+      "from": "Tellings van die regstreekse voer word outomaties ingevul en vloei reguit na die regte groeptabel hierbo en die groep se puntestand.",
+      "to": "Tellings uit die regstreekse voer word outomaties ingevul en vloei reguit na die regte groeptabel hierbo en die groep se puntestand."
+    },
+    "cup.knockouts": {
+      "from": "Uitklop",
+      "to": "Uitklopfase"
+    },
+    "cup.subKo": {
+      "from": "uitklopkaart",
+      "to": "uitklopskedule"
+    },
+    "cup.upcomingEmpty": {
+      "from": "Geen wedstryde nou oor nie.",
+      "to": "Geen wedstryde wat nou nog kom nie."
+    },
+    "cup.upcomingHint": {
+      "from": "Elke groep- en uitklopwedstryd wat nog kom, die naaste eerste. Net om te lees.",
+      "to": "Elke groep- en uitklopwedstryd wat nog kom, met die naaste eerste. Net om te lees."
+    },
+    "draw.cap1": {
+      "from": "Balanseer die spanne, geen gunstelinge toegelaat nie.",
+      "to": "Balanseer die spanstelle; geen gunstelinge toegelaat nie."
+    },
+    "draw.cap2": {
+      "from": "Deel die reuse regverdig uit, hou vas.",
+      "to": "Deel die reuse regverdig uit, hou styf vas."
+    },
+    "draw.cap3": {
+      "from": "Doen die somme sodat niemand 'n swak stel kry nie.",
+      "to": "Doen die somme sodat niemand met ’n swak spanstel sit nie."
+    },
+    "draw.closing": {
+      "from": "Spanne gebalanseer. Geniet die wedstryde.",
+      "to": "Spanstelle gebalanseer. Geniet die wedstryde."
+    },
+    "foot.note": {
+      "from": "'n Groepspeletjie net vir die pret · geen verband met FIFA nie · geen regte geld hier nie",
+      "to": "’n Groepspeletjie net vir die pret · nie met FIFA geaffilieer nie · geen regte geld beweeg hier nie"
+    },
+    "group.crystalOff": {
+      "from": "Kristalbal: projekteer jou eie voorspellings op die tabel",
+      "to": "Kristalbal: wys jou eie voorspellings op die tabel"
+    },
+    "group.crystalOn": {
+      "from": "Wys die tabel volgens jou voorspellings, tik vir net regstreeks",
+      "to": "Wys die tabel volgens jou voorspellings, tik vir net regstreekse uitslae"
+    },
+    "home.kicker": {
+      "from": "48 nasies · een wêreldwye wedywering",
+      "to": "48 nasies · een wêreldwye stryd"
+    },
+    "home.lede": {
+      "from": "Tik almal se name in en die werf deel die lande lukraak aan elke lid van die groep uit. Kyk dan hoe die puntelys baklei tot in die eindstryd. Gemaak vir hegte groepe wat oor die wêreld versprei is.",
+      "to": "Tik almal se name in en die werf deel lande lukraak aan elke lid van die groep uit. Kyk dan hoe die puntelys dit uitbaklei tot by die eindstryd. Gemaak vir hegte groepe wat oor die wêreld versprei is."
+    },
+    "home.step2d": {
+      "from": "Elke span gaan aan iemand, en die spanne word gebalanseer om omtrent ewe sterk te wees. Twaalf lede beteken vier elk; minder beteken meer elk; meer beteken sommige spanne word gedeel.",
+      "to": "Elke span gaan aan iemand, en die spanstelle word gebalanseer om omtrent ewe sterk te wees. Twaalf lede beteken vier elk; minder beteken meer elk; meer beteken sommige spanne word gedeel."
+    },
+    "home.step3d": {
+      "from": "Een kode laat enigeen die groep se punte volg, wedstryde voorspel en die pot dophou.",
+      "to": "Een kode laat enigeen die groep se puntestand volg, wedstryde voorspel en die pot dophou."
+    },
+    "home.step3t": {
+      "from": "Klim op die tabel",
+      "to": "Klim op die puntelys"
+    },
+    "join.lede": {
+      "from": "Tik die kode in wat die groep se skepper met jou gedeel het om die trekking, tabel en pot te volg.",
+      "to": "Tik die kode in wat die groep se skepper met jou gedeel het om die trekking, puntelys en pot te volg."
+    },
+    "ko.hint": {
+      "from": "Uitklop se afskoptye, spanne en tellings werk outomaties by vanaf die regstreekse voer. Hierdie aansig is net om te lees.",
+      "to": "Uitklop-afskoptye, spanne en tellings werk outomaties by vanaf die regstreekse voer. Hierdie aansig is net om te lees."
+    },
+    "ko.loserOf": {
+      "from": "Verloorder van Wedstryd {n}",
+      "to": "Verloorder van wedstryd {n}"
+    },
+    "ko.third": {
+      "from": "Stryd om derde plek",
+      "to": "Uitspeelwedstryd om derde plek"
+    },
+    "pot.championD": {
+      "from": "20% gehou vir wie ook al die span besit wat die Beker wen; die res deur die boonste 15% se trapsverdeling.",
+      "to": "20% word gehou vir wie ook al die span het wat die Beker wen; die res via die boonste 15% se trapsverdeling."
+    },
+    "pot.championT": {
+      "from": "Steun die Kampioen",
+      "to": "Kies die Kampioen"
+    },
+    "pot.clear": {
+      "from": "vee uit",
+      "to": "vee skoon"
+    },
+    "pot.hintLive": {
+      "from": "Die verdeling verskyn hier sodra daar regte wedstryduitslae is. Om dit eerder uit voorspellings te sien, skakel die {crystal} in die {ranks}-oortjie aan.",
+      "to": "Die verdeling verskyn hier sodra regte wedstryduitslae inkom. Om dit eerder uit voorspellings te sien, skakel die {crystal} in die {ranks}-oortjie aan."
+    },
+    "pot.predictedTable": {
+      "from": "op die geprojekteerde tabel",
+      "to": "op die voorspelde tabel"
+    },
+    "pot.reserve": {
+      "from": "{money} gehou vir wie die Kampioen gesteun het, beslis by die Eindstryd",
+      "to": "{money} word vir die Kampioen se ondersteuner gehou, beslis in die Eindstryd"
+    },
+    "predict.chanceNote": {
+      "from": "Geskatte kanse uit die boekmakers se kanse, net vir die interessantheid.",
+      "to": "Geskatte kanse uit beroepswedders se kansberekeninge, net vir belangstelling."
+    },
+    "predict.resultsCalls": {
+      "from": "Uitslae en almal se keuses",
+      "to": "Uitslae en almal se voorspellings"
+    },
+    "predict.startHint": {
+      "from": "Tik die name hierbo om te begin voorspel. Voorspellings sluit met afskop en bly tot dan vir almal anders weg.",
+      "to": "Tik die name hierbo om te begin voorspel. Voorspellings sluit met afskop en bly tot dan vir almal anders versteek."
+    },
+    "predict.tapHint": {
+      "from": "Tik almal vir wie jy voorspellings insit, ook die kleintjies sonder hul eie foon. Een toestel kan verskeie mense se voorspellings hou.",
+      "to": "Tik almal vir wie jy voorspellings insit, ook kinders sonder hul eie foon. Een toestel kan verskeie mense se voorspellings hou."
+    },
+    "ranks.hint": {
+      "from": "Punte beloon oorwinnings, doelverskil, skoonblaaie en verrassings teen die grotes, oor al 'n lid se spanne heen.",
+      "to": "Punte beloon oorwinnings, doelmarges, wedstryde sonder doele afgestaan en reuse-oorwinnings oor al ’n lid se spanne heen."
+    },
+    "ranks.title": {
+      "from": "Groep se puntestand",
+      "to": "Groep se puntelys"
+    },
+    "setup.chooseTitle": {
+      "from": "Wie kry die kleiner stel?",
+      "to": "Wie kry die kleiner spanstel?"
+    },
+    "setup.evenHint": {
+      "from": "Die spanne bly gebalanseer om omtrent ewe sterk te wees, so wie minder spanne kry, kry gewoonlik die hoër geplaastes om te vergoed. Dis heeltemal reg om die app te laat besluit.",
+      "to": "Die spanstelle bly gebalanseer om omtrent ewe sterk te wees, so wie minder spanne kry, kry gewoonlik die hoër geplaasdes om daarvoor te vergoed. Dis heeltemal reg om die app te laat besluit."
+    },
+    "setup.evenTitle": {
+      "from": "Maak dit gelyk?",
+      "to": "Maak dit regverdig?"
+    },
+    "setup.handpickTitle": {
+      "from": "Kies spanne self (opsioneel)",
+      "to": "Kies spanne self uit (opsioneel)"
+    },
+    "setup.manualHint": {
+      "from": "Enigiets wat op {auto} gelos word, word deur die gebalanseerde trekking uitgedeel. Om baie spanne vir een persoon te kies kan die balans versteur, so 'n ligte aanslag werk die beste.",
+      "to": "Enigiets wat op {auto} gelos word, word deur die gebalanseerde trekking uitgedeel. Om baie spanne vir een persoon self te kies kan die balans versteur, so ’n ligte aanslag werk die beste."
+    },
+    "share.msgIntro": {
+      "from": "Jy is genooi na ons Wêreldbeker-trekking. 'n Bietjie pret vir die toernooi: jy kry 'n lukrake stel nasionale spanne om te volg, en dan veg ons almal dit uit op 'n gedeelde punteleer. Tik die skakel om in te spring, jou kode is reeds gelaai.",
+      "to": "Jy is genooi na ons Wêreldbeker-trekking. ’n Bietjie pret vir die toernooi: jy kry ’n lukrake stel nasionale spanne om te volg, en dan baklei ons almal dit uit op ’n gedeelde puntelys. Tik die skakel om in te spring; jou kode is reeds gelaai."
+    },
+    "share.msgOutro": {
+      "from": "Gemaak deur ProfitPulse. Elke span by hierdie Wêreldbeker jaag die trofee; ons help besigheidseienaars om hulle s'n te jaag. https://profit-pulse.com.au",
+      "to": "Gemaak deur ProfitPulse. Elke span by hierdie Wêreldbeker jaag die trofee; ons help besigheidseienaars om húlle s’n te jaag. https://profit-pulse.com.au"
+    },
+    "squads.dupesPost": {
+      "from": " merkie wys hoeveel lede daardie span hou.",
+      "to": " merkie wys hoeveel lede daardie span het."
+    },
+    "squads.dupesPre": {
+      "from": "Met meer as 12 lede word elke span steeds uitgedeel en die spanne word gebalanseer om omtrent ewe sterk te wees, deur eers die groot en sterk spanne gelyk te versprei, so sommige spanne word deur meer as een lid gehou. 'n ",
+      "to": "Met meer as 12 lede word elke span steeds uitgedeel en die spanstelle word gebalanseer om omtrent ewe sterk te wees; die elite- en sterk spanne word eers regverdig versprei, so sommige spanne word deur meer as een lid gehou. ’n "
+    },
+    "squads.heldBy": {
+      "from": "Deur {n} lede gehou",
+      "to": "Gehou deur {n} lede"
+    },
+    "tab.ranks": {
+      "from": "Ranglys",
+      "to": "Puntelys"
+    },
+    "tab.squads": {
+      "from": "Spanne",
+      "to": "Spanstelle"
+    },
+    "tier.mid": {
+      "from": "Middel",
+      "to": "Gemiddeld"
+    },
+    "tier.underdog": {
+      "from": "Buitestaander",
+      "to": "Agterosse"
+    },
+    "title.topDog": {
+      "from": "Die baas",
+      "to": "Voorloper"
+    }
+  }
+}
