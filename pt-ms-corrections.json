@@ -1,0 +1,154 @@
+{
+  "pt": {
+    "banner.predictCta": {
+      "from": "A disputa começou. Trave seus palpites antes do primeiro apito, lidere a liga de palpites e o direito de se gabar é seu. Vá pra aba {predict}.",
+      "to": "A disputa começou. Faça seus palpites antes do primeiro apito, lidere a liga de palpites e fique com o direito de se gabar. Vá para a aba {predict}."
+    },
+    "cer.skip": {
+      "from": "Pular, é só distribuir",
+      "to": "Pular e distribuir direto"
+    },
+    "cer.teamByTeamD": {
+      "from": "Uma seleção por vez, dando a volta no grupo, subindo até as grandes.",
+      "to": "Uma seleção por vez, rodando pelo grupo e criando suspense até as grandes."
+    },
+    "create.codePlaceholder": {
+      "from": "ex. WORLDCUP26",
+      "to": "ex.: WORLDCUP26"
+    },
+    "cup.advance": {
+      "from": "Os dois primeiros (destacados) avançam, mais os melhores terceiros.",
+      "to": "Os dois primeiros (em destaque) avançam, mais os melhores terceiros."
+    },
+    "home.lede": {
+      "from": "Coloque o nome de todo mundo e o site distribui os países no sorteio para cada membro do grupo. Depois é só assistir a classificação brigar até a final. Feito para grupos unidos espalhados pelo mundo.",
+      "to": "Coloque o nome de todo mundo e o site distribui os países aleatoriamente para cada membro do grupo. Depois, acompanhe a disputa na classificação até a final. Feito para grupos conectados espalhados pelo mundo."
+    },
+    "home.titleL2": {
+      "from": "Sorteio dos grupos",
+      "to": "Sorteio do grupo"
+    },
+    "ko.r32": {
+      "from": "16 avos de final",
+      "to": "Fase de 32"
+    },
+    "pot.championT": {
+      "from": "Aposte no Campeão",
+      "to": "Escolha o Campeão"
+    },
+    "pot.reserve": {
+      "from": "{money} guardados pra quem apostou no Campeão, decidido na Final",
+      "to": "{money} guardados para quem escolheu o Campeão, decidido na Final"
+    },
+    "predict.chanceNote": {
+      "from": "Chances estimadas a partir das odds das casas, só pra referência.",
+      "to": "Chances estimadas a partir das probabilidades das casas de apostas, só para referência."
+    },
+    "ranks.hint": {
+      "from": "A pontuação premia vitórias, saldo de gols, jogos sem sofrer gol e zebras contra os grandes, em todas as seleções de um membro.",
+      "to": "A pontuação premia vitórias, margem de gols, jogos sem sofrer gol e zebras contra os grandes, em todas as seleções de um membro."
+    },
+    "tab.ranks": {
+      "from": "Tabela",
+      "to": "Ranking"
+    },
+    "title.darkHorse": {
+      "from": "Zebra",
+      "to": "Azarão"
+    }
+  },
+  "ms": {
+    "banner.predictCta": {
+      "from": "Perlumbaan bermula. Kunci ramalan anda sebelum sepak mula pertama, dahului liga ramalan, dan hak berlagak jadi milik anda. Pergi ke tab {predict}.",
+      "to": "Perlumbaan bermula. Kunci ramalan anda sebelum sepak mula pertama, dahului liga ramalan, dan hak membanggakan diri jadi milik anda. Pergi ke tab {predict}."
+    },
+    "cer.strongestPre": {
+      "from": " Skuad paling kuat atas kertas pergi kepada ",
+      "to": " Skuad paling kuat atas kertas menjadi milik "
+    },
+    "cer.teamByTeamD": {
+      "from": "Satu pasukan pada satu masa, berkeliling kumpulan, menuju ke pasukan besar.",
+      "to": "Satu pasukan pada satu masa, bergilir-gilir dalam kumpulan, sambil membina debaran menuju pasukan besar."
+    },
+    "create.available": {
+      "from": "Tersedia",
+      "to": "Ada"
+    },
+    "create.hint12": {
+      "from": "Bilangan paling sesuai: kesemua 48 pasukan, tepat empat seorang, tiada berulang, dengan skuad diseimbangkan supaya lebih kurang sama kuat.",
+      "to": "Pilihan terbaik: kesemua 48 pasukan, tepat empat seorang, tiada ulangan, dengan skuad diseimbangkan supaya lebih kurang sama kuat."
+    },
+    "create.hintOver12": {
+      "from": "Setiap orang memegang empat pasukan dan kesemua 48 dilindungi. Skuad diseimbangkan supaya lebih kurang sama kuat, mengagihkan pasukan besar dan kuat secara sama rata dahulu, jadi beberapa pasukan dipegang oleh dua orang atau lebih.",
+      "to": "Setiap orang memegang empat pasukan dan kesemua 48 pasukan termasuk. Skuad diseimbangkan supaya lebih kurang sama kuat, dengan pasukan elit dan kuat diagihkan sama rata dahulu, jadi beberapa pasukan dipegang oleh dua orang atau lebih."
+    },
+    "cup.advance": {
+      "from": "Dua teratas (diserlahkan) melangkah, serta pasukan ketiga terbaik.",
+      "to": "Dua teratas (diserlahkan) mara, serta pasukan tempat ketiga terbaik."
+    },
+    "cup.subKo": {
+      "from": "carta kalah mati",
+      "to": "braket kalah mati"
+    },
+    "cup.upcomingHint": {
+      "from": "Semua perlawanan kumpulan dan kalah mati yang masih berbaki, yang terdekat dahulu. Baca sahaja.",
+      "to": "Semua perlawanan kumpulan dan kalah mati yang masih berbaki, yang terdekat dahulu. Paparan baca sahaja."
+    },
+    "group.crystalOn": {
+      "from": "Memaparkan jadual daripada ramalan anda, ketik untuk langsung sahaja",
+      "to": "Memaparkan jadual berdasarkan ramalan anda, ketik untuk lihat keputusan langsung sahaja"
+    },
+    "home.lede": {
+      "from": "Masukkan nama semua orang dan laman ini akan membahagikan negara secara rawak kepada setiap ahli kumpulan. Kemudian saksikan kedudukan bersaing sehingga ke akhir. Dibina untuk kumpulan rapat yang bertaburan di seluruh dunia.",
+      "to": "Masukkan nama semua orang dan laman ini akan membahagikan negara secara rawak kepada setiap ahli kumpulan. Kemudian saksikan papan kedudukan bersaing sehingga ke final. Dibina untuk kumpulan rapat yang bertaburan di seluruh dunia."
+    },
+    "home.step2d": {
+      "from": "Setiap pasukan pergi kepada seseorang, dan skuad diseimbangkan supaya lebih kurang sama kuat. Dua belas ahli bermakna empat seorang; kurang, lebih seorang; lebih, sebahagian pasukan dikongsi.",
+      "to": "Setiap pasukan pergi kepada seseorang, dan skuad diseimbangkan supaya lebih kurang sama kuat. Dua belas ahli bermakna empat seorang; jika kurang ahli, setiap orang dapat lebih; jika lebih ahli, beberapa pasukan dikongsi."
+    },
+    "home.step3t": {
+      "from": "Naik dalam jadual",
+      "to": "Naik papan kedudukan"
+    },
+    "ko.empty": {
+      "from": "Carta kalah mati muncul di sini sebaik sahaja perlawanan diumumkan.",
+      "to": "Braket kalah mati muncul di sini sebaik sahaja jadual perlawanan diumumkan."
+    },
+    "ko.loserOf": {
+      "from": "Yang kalah Perlawanan {n}",
+      "to": "Pasukan kalah Perlawanan {n}"
+    },
+    "pot.championD": {
+      "from": "20% disimpan untuk sesiapa yang memiliki pasukan yang memenangi Piala; selebihnya melalui peringkat 15% teratas.",
+      "to": "20% disimpan untuk sesiapa yang memegang pasukan yang memenangi Piala; selebihnya melalui agihan berperingkat kepada 15% teratas."
+    },
+    "predict.chanceNote": {
+      "from": "Anggaran peluang daripada odds penjudi, untuk rujukan sahaja.",
+      "to": "Anggaran peluang berdasarkan odds pasaran, untuk rujukan sahaja."
+    },
+    "ranks.hint": {
+      "from": "Markah memberi ganjaran untuk kemenangan, jurang gol, jaringan bersih dan kejutan menentang pasukan besar, merentas semua pasukan seseorang ahli.",
+      "to": "Markah diberi untuk kemenangan, margin gol, clean sheet dan kejutan menewaskan pasukan besar, merentas semua pasukan seseorang ahli."
+    },
+    "setup.handpickTitle": {
+      "from": "Pilih pasukan sendiri (pilihan)",
+      "to": "Pilih pasukan secara manual (pilihan)"
+    },
+    "setup.manualHint": {
+      "from": "Apa sahaja yang dibiar pada {auto} akan diagihkan oleh cabutan seimbang. Memilih banyak pasukan untuk seorang boleh menjejaskan keseimbangan, jadi lebih baik buat sikit-sikit.",
+      "to": "Apa sahaja yang dibiarkan pada {auto} akan diagihkan oleh cabutan seimbang. Memilih terlalu banyak pasukan untuk seorang boleh menjejaskan keseimbangan, jadi lebih baik buat sedikit sahaja."
+    },
+    "squads.dupesPre": {
+      "from": "Dengan lebih 12 ahli, setiap pasukan tetap diagihkan dan skuad diseimbangkan supaya lebih kurang sama kuat, mengagihkan pasukan besar dan kuat secara sama rata dahulu, jadi sesetengah pasukan dipegang oleh lebih daripada seorang ahli. Tag ",
+      "to": "Dengan lebih 12 ahli, setiap pasukan tetap diagihkan dan skuad diseimbangkan supaya lebih kurang sama kuat, dengan pasukan elit dan kuat diagihkan sama rata dahulu, jadi sesetengah pasukan dipegang oleh lebih daripada seorang ahli. Label "
+    },
+    "tab.ranks": {
+      "from": "Jadual",
+      "to": "Kedudukan"
+    },
+    "tier.underdog": {
+      "from": "Bawahan",
+      "to": "Bukan pilihan"
+    }
+  }
+}
