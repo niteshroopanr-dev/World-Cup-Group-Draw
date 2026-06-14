@@ -235,17 +235,17 @@ const money = (n, cur) => { try { return new Intl.NumberFormat(undefined,{style:
 const predResult = (p) => p==="home" ? {h:1,a:0} : p==="away" ? {h:0,a:1} : {h:0,a:0};
 const outcome = (res) => res.h>res.a ? "home" : res.h<res.a ? "away" : "draw";
 
-// One team's score (with bonuses) from a results map.
+// One team's score from a results map: plain 3/1/0, matching the Cup group tables (no bonuses).
 const teamStats = (id, results) => {
   let pld=0,w=0,d=0,l=0,gf=0,ga=0,pts=0,bestUpset=0;
   for (const fx of FIX_BY_TEAM[id]) {
     const res = results[fx.id]; if (!res) continue;
     const home = fx.home===id, my = home?res.h:res.a, op = home?res.a:res.h, oppId = home?fx.away:fx.home;
     pld++; gf+=my; ga+=op;
-    if (my>op){ w++; pts+=3; pts+=Math.min(my-op,5);
-      if (TEAMS[oppId].r < TEAMS[id].r){ const gap=TEAMS[id].r-TEAMS[oppId].r; pts+= gap>=20?5:3; if(gap>bestUpset)bestUpset=gap; }
+    if (my>op){ w++; pts+=3;
+      // bestUpset still recorded for the Giant Slayer badge, but it no longer adds points.
+      if (TEAMS[oppId].r < TEAMS[id].r){ const gap=TEAMS[id].r-TEAMS[oppId].r; if(gap>bestUpset)bestUpset=gap; }
     } else if (my===op){ d++; pts+=1; } else { l++; }
-    if (op===0) pts+=1;
   }
   return {pld,w,d,l,gf,ga,gd:gf-ga,pts,bestUpset};
 };

@@ -212,7 +212,7 @@ const translations = {
     "ranks.notStarted": "not started",
     "ranks.empty": "The draw is set. Once games kick off, the group leaderboard comes alive.",
     "ranks.offTop": "{n} off top",
-    "ranks.hint": "Scores reward wins, goal margins, clean sheets and giant-killing upsets across all of a member's teams.",
+    "ranks.hint": "Scores use standard World Cup points, 3 for a win and 1 for a draw, added up across all of a member's teams, so they match the real group tables.",
 
     // squads
     "squads.dupesPre": "With more than 12 members, every team is still allocated and squads are balanced to be about equally strong, sharing the elite and strong sides out evenly first, so some teams get held by more than one member. A ",
@@ -475,7 +475,6 @@ const translations = {
     "ranks.projected": "proyectada",
     "ranks.live": "en directo",
     "ranks.notStarted": "sin empezar",    "ranks.offTop": "a {n} del líder",
-    "ranks.hint": "La puntuación premia victorias, diferencias de goles, porterías a cero y sorpresas ante los grandes en todas las selecciones de cada miembro.",
 
     "squads.dupesPre": "Con más de 12 miembros, cada selección se reparte igual y las plantillas quedan parejas de fuerza, repartiendo primero por igual a las grandes y a las fuertes, así que algunas selecciones las tienen más de un miembro. Una etiqueta ",
     "squads.dupesPost": " indica cuántos miembros tienen esa selección.",
@@ -735,7 +734,6 @@ const translations = {
     "ranks.projected": "projeté",
     "ranks.live": "en direct",
     "ranks.notStarted": "pas commencé",    "ranks.offTop": "à {n} du leader",
-    "ranks.hint": "Le score récompense les victoires, les écarts de buts, les clean sheets et les exploits face aux gros, sur toutes les équipes d'un membre.",
 
     "squads.dupesPre": "À plus de 12 membres, chaque équipe est quand même attribuée et les effectifs sont équilibrés pour être à peu près de force égale, en répartissant d'abord les grosses et les solides de façon égale, donc certaines équipes sont détenues par plus d'un membre. Une étiquette ",
     "squads.dupesPost": " indique combien de membres détiennent cette équipe.",
@@ -996,7 +994,6 @@ const translations = {
     "ranks.projected": "proiettata",
     "ranks.live": "in diretta",
     "ranks.notStarted": "non iniziata",    "ranks.offTop": "a {n} dalla vetta",
-    "ranks.hint": "Il punteggio premia vittorie, scarti di gol, porte inviolate e colpacci contro le grandi, su tutte le squadre di un membro.",
 
     "squads.dupesPre": "Con più di 12 membri, ogni squadra viene comunque assegnata e le rose sono bilanciate per essere più o meno di pari forza, distribuendo prima in parti uguali le grandi e le forti, così alcune squadre finiscono a più di un membro. Un'etichetta ",
     "squads.dupesPost": " indica quanti membri hanno quella squadra.",
@@ -1256,7 +1253,6 @@ const translations = {
     "ranks.projected": "预测中",
     "ranks.live": "实时",
     "ranks.notStarted": "未开始",    "ranks.offTop": "落后榜首 {n} 分",
-    "ranks.hint": "得分会奖励胜利、净胜球、零封以及以小搏大的爆冷，涵盖一名成员的所有球队。",
 
     "squads.dupesPre": "超过 12 名成员时，每支球队仍会全部分配，各阵容尽量分得实力相当，先把顶级和强队平均分开，所以有些球队会由不止一名成员持有。一个",
     "squads.dupesPost": " 标签会显示有多少名成员持有该球队。",
@@ -1516,7 +1512,6 @@ const translations = {
     "ranks.projected": "अनुमानित",
     "ranks.live": "लाइव",
     "ranks.notStarted": "शुरू नहीं हुआ",    "ranks.offTop": "टॉप से {n} पीछे",
-    "ranks.hint": "स्कोर जीत, गोल अंतर, क्लीन शीट और बड़ी टीमों को हराने वाले उलटफेर को इनाम देता है, एक मेंबर की सभी टीमों पर।",
 
     "squads.dupesPre": "12 से ज़्यादा मेंबर होने पर भी हर टीम बँटती है और दस्ते लगभग बराबर ताकत के रखे जाते हैं, पहले एलीट और मज़बूत टीमों को बराबर बाँटकर, तो कुछ टीमें एक से ज़्यादा मेंबर के पास होती हैं। एक ",
     "squads.dupesPost": " टैग दिखाता है कि वह टीम कितने मेंबरों के पास है।",
@@ -1777,7 +1772,6 @@ const translations = {
     "ranks.projected": "προβλεπόμενη",
     "ranks.live": "ζωντανά",
     "ranks.notStarted": "δεν ξεκίνησε",    "ranks.offTop": "{n} από την κορυφή",
-    "ranks.hint": "Το σκορ ανταμείβει νίκες, διαφορές τερμάτων, ανέπαφες εστίες και ανατροπές κόντρα στους μεγάλους, σε όλες τις ομάδες ενός μέλους.",
 
     "squads.dupesPre": "Με πάνω από 12 μέλη, κάθε ομάδα και πάλι μοιράζεται και τα ρόστερ ισορροπούν ώστε να είναι περίπου ίδιας δύναμης, μοιράζοντας πρώτα ισόποσα τις μεγάλες και τις δυνατές, οπότε κάποιες ομάδες τις έχουν πάνω από ένα μέλος. Μια ετικέτα ",
     "squads.dupesPost": " δείχνει πόσα μέλη έχουν αυτή την ομάδα.",
@@ -2027,7 +2021,6 @@ const translations = {
     "ranks.notStarted": "não começou",
     "ranks.empty": "O sorteio está pronto. Quando os jogos começarem, a classificação do grupo ganha vida.",
     "ranks.offTop": "{n} atrás do líder",
-    "ranks.hint": "A pontuação premia vitórias, margem de gols, jogos sem sofrer gol e zebras contra os grandes, em todas as seleções de um membro.",
     "squads.dupesPre": "Com mais de 12 membros, cada seleção continua sendo distribuída e os elencos ficam equilibrados pra ter mais ou menos a mesma força, distribuindo primeiro as grandes e as fortes por igual, então algumas seleções ficam com mais de um membro. Uma etiqueta ",
     "squads.dupesPost": " mostra quantos membros têm aquela seleção.",
     "squads.heldBy": "Com {n} membros",
@@ -2265,7 +2258,6 @@ const translations = {
     "ranks.notStarted": "belum bermula",
     "ranks.empty": "Cabutan sudah ditetapkan. Sebaik sahaja perlawanan bermula, kedudukan kumpulan jadi hidup.",
     "ranks.offTop": "{n} di belakang pendahulu",
-    "ranks.hint": "Markah diberi untuk kemenangan, margin gol, clean sheet dan kejutan menewaskan pasukan besar, merentas semua pasukan seseorang ahli.",
     "squads.dupesPre": "Dengan lebih 12 ahli, setiap pasukan tetap diagihkan dan skuad diseimbangkan supaya lebih kurang sama kuat, dengan pasukan elit dan kuat diagihkan sama rata dahulu, jadi sesetengah pasukan dipegang oleh lebih daripada seorang ahli. Label ",
     "squads.dupesPost": " menunjukkan berapa ramai ahli memegang pasukan itu.",
     "squads.heldBy": "Dipegang oleh {n} ahli",
@@ -2503,7 +2495,6 @@ const translations = {
     "ranks.notStarted": "nog nie begin nie",
     "ranks.empty": "Die trekking is gereël. Sodra die wedstryde begin, kom die groep se puntelys tot lewe.",
     "ranks.offTop": "{n} agter die leier",
-    "ranks.hint": "Punte beloon oorwinnings, doelmarges, wedstryde sonder doele afgestaan en reuse-oorwinnings oor al ’n lid se spanne heen.",
     "squads.dupesPre": "Met meer as 12 lede word elke span steeds uitgedeel en die spanstelle word gebalanseer om omtrent ewe sterk te wees; die elite- en sterk spanne word eers regverdig versprei, so sommige spanne word deur meer as een lid gehou. ’n ",
     "squads.dupesPost": " merkie wys hoeveel lede daardie span het.",
     "squads.heldBy": "Gehou deur {n} lede",
