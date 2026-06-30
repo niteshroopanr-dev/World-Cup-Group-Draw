@@ -266,6 +266,8 @@ const translations = {
     "ko.tagThird": "3rd",
     "ko.tagFinal": "Final",
     "ko.tbd": "To be decided",
+    "ko.pens": "pens",
+    "ko.aet": "a.e.t.",
     "ko.winnerOf": "Winner of Match {n}",
     "ko.loserOf": "Loser of Match {n}",
     "ko.winnersGroup": "Winners of Group {g}",

@@ -234,6 +234,20 @@ const CURRENCIES = ["AUD","USD","GBP","EUR","NZD","ZAR","INR","JPY"];
 const money = (n, cur) => { try { return new Intl.NumberFormat(undefined,{style:"currency",currency:cur,maximumFractionDigits:2,minimumFractionDigits:0}).format(n||0); } catch { return `${cur} ${Math.round(n||0)}`; } };
 const predResult = (p) => p==="home" ? {h:1,a:0} : p==="away" ? {h:0,a:1} : {h:0,a:0};
 const outcome = (res) => res.h>res.a ? "home" : res.h<res.a ? "away" : "draw";
+// Who PROGRESSED in a knockout: the higher scorer; or, when the regular/extra-time scoreline is level
+// and a penalty shootout settled it, the side with the higher penalty score. Penalty scores are stored
+// oriented to home/away exactly like the main score, so a direct compare is correct. Returns "home"/
+// "away", or "draw" only if genuinely level with no shootout (not expected for a completed knockout).
+// Group games never call this, so real group draws are scored by outcome() exactly as before.
+const koWinner = (h, a, hp, ap) =>
+  h>a ? "home" : a>h ? "away" :
+  (hp!=null && ap!=null && hp!==ap) ? (hp>ap ? "home" : "away") : "draw";
+// Compact "decided by" suffix for a completed knockout score line: " · pens 3–4" when a shootout
+// settled it, else " a.e.t." when it went to extra time without one, else "". The penalty score is
+// oriented home–away like the main score. Group games never show this.
+const koDecidedNote = (t, hasPens, hp, ap, hasEt) =>
+  (hasPens && hp!=null && ap!=null) ? ` · ${t("ko.pens")} ${hp}–${ap}`
+  : hasEt ? ` ${t("ko.aet")}` : "";
 
 // One team's score from a results map: plain 3/1/0, matching the Cup group tables (no bonuses).
 const teamStats = (id, results) => {
@@ -384,7 +398,7 @@ export default function WorldCupFamilyDraw(){
   useEffect(() => {
     if(!supabase) return;
     let active = true;
-    const KO_COLS = "id,match_number,stage,kickoff,status,home_team,away_team,home_score,away_score,home_odds,draw_odds,away_odds";
+    const KO_COLS = "id,match_number,stage,kickoff,status,home_team,away_team,home_score,away_score,home_odds,draw_odds,away_odds,home_score_penalties,away_score_penalties,has_extra_time,has_penalty_shootout";
     (async () => {
       const { data } = await supabase.from("matches")
         .select("fixture,kickoff,status,home_score,away_score,home_odds,draw_odds,away_odds").not("fixture","is",null);
@@ -396,7 +410,7 @@ export default function WorldCupFamilyDraw(){
       if(!active) return;
       const out = {}; (data||[]).forEach(r=>{ if(r.id!=null) out[r.id]=r; }); setKnockouts(out);
     })();
-    const koRow = (r) => ({ id:r.id, match_number:r.match_number, stage:r.stage, kickoff:r.kickoff, status:r.status, home_team:r.home_team, away_team:r.away_team, home_score:r.home_score, away_score:r.away_score, home_odds:r.home_odds, draw_odds:r.draw_odds, away_odds:r.away_odds });
+    const koRow = (r) => ({ id:r.id, match_number:r.match_number, stage:r.stage, kickoff:r.kickoff, status:r.status, home_team:r.home_team, away_team:r.away_team, home_score:r.home_score, away_score:r.away_score, home_odds:r.home_odds, draw_odds:r.draw_odds, away_odds:r.away_odds, home_score_penalties:r.home_score_penalties, away_score_penalties:r.away_score_penalties, has_extra_time:r.has_extra_time, has_penalty_shootout:r.has_penalty_shootout });
     const ch = supabase.channel("wcfd:matches")
       .on("postgres_changes", { event:"*", schema:"public", table:"matches" }, (p) => {
         if(p.eventType==="DELETE"){
@@ -925,17 +939,13 @@ function GroupView({ group, preds, onPick, mine, toggleMine, saveGroup, exit, is
   }, [results, matches, now]);
 
   // Predictions leader for the banner: the same standings the Predict tab computes (most correct, then
-  // most called, then name). Display only; reads the predictions, does not change how they are scored.
-  // Null until someone has at least one correct pick.
+  // most called, then name), now spanning group + knockout calls via the shared tally helper. Display
+  // only; reads the predictions, does not change how they are scored. Null until someone has a correct pick.
   const predLeader = useMemo(()=>{
-    const rows = group.members.map(m=>{
-      let correct=0, called=0;
-      for(const fx of FIXTURES){ const r=results[fx.id]; if(!r) continue; const pk=preds[m.id]&&preds[m.id][fx.id]; if(!pk) continue; called++; if(outcome(r)===pk) correct++; }
-      return { ...m, correct, called };
-    });
+    const rows = predictionTallies(group.members, preds, results, knockouts);
     rows.sort((a,b)=> b.correct-a.correct || b.called-a.called || a.name.localeCompare(b.name));
     return (rows[0] && rows[0].correct>0) ? rows[0] : null;
-  }, [group, preds, results]);
+  }, [group, preds, results, knockouts]);
 
   const tabs = [
     {k:"ranks", label:t("tab.ranks"), icon:<Trophy size={16}/>},
@@ -966,7 +976,7 @@ function GroupView({ group, preds, onPick, mine, toggleMine, saveGroup, exit, is
 
       {tab==="ranks" && <RanksTab standings={standings} titles={titles} anyPlayed={anyPlayed} pool={group.pool} project={project}/>}
       {tab==="squads" && <SquadsTab standings={standings} titles={titles} anyPlayed={anyPlayed} teamHolders={teamHolders} openCard={openCard} setOpenCard={setOpenCard}/>}
-      {tab==="predict" && <PredictTab group={group} preds={preds} onPick={onPick} mine={mine} toggleMine={toggleMine} now={now} results={results} matches={matches}/>}
+      {tab==="predict" && <PredictTab group={group} preds={preds} onPick={onPick} mine={mine} toggleMine={toggleMine} now={now} results={results} matches={matches} knockouts={knockouts}/>}
       {tab==="cup" && <CupTab group={group} nextFx={nextFx} results={results} matches={matches} knockouts={knockouts} now={now}/>}
       {tab==="pot" && <PotTab group={group} standings={standings} saveGroup={saveGroup} project={project} anyPlayed={anyPlayed}/>}
     </div>
@@ -1103,7 +1113,42 @@ function Chances({ fx, matches }){
     </div>
   );
 }
-function PredictTab({ group, preds, onPick, mine, toggleMine, now, results, matches }){
+// Same chance line as Chances, but driven by explicit team ids + a precomputed percentages object, so
+// it serves both group fixtures and knockout matches in the Predict tab. The draw % is shown for info
+// even on knockout cards (where draw is not a pick), matching the bracket view in the Cup tab.
+function ChanceLine({ home, away, c }){
+  const t = useT();
+  if(!c) return null;
+  return (
+    <div className="chances">
+      <span className="chc"><span className="flag">{TEAMS[home].f}</span> <b>{c.home}%</b></span>
+      <span className="chc-sep">/</span>
+      <span className="chc">{t("common.draw")} <b>{c.draw}%</b></span>
+      <span className="chc-sep">/</span>
+      <span className="chc"><span className="flag">{TEAMS[away].f}</span> <b>{c.away}%</b></span>
+    </div>
+  );
+}
+// Predictions scoreboard tallies (most correct calls) across BOTH the group stage and the knockouts,
+// shared by the Predict tab board and the banner's predictions leader so the two always agree. Group
+// calls are scored with outcome() against the merged results (real draws stay draws). Knockout calls
+// are scored against the team that PROGRESSED via koWinner — so a match decided on penalties credits
+// whoever picked the shootout winner, not nobody — and only for matches whose two sides are both real
+// teams (placeholder slots are never scored).
+function predictionTallies(members, preds, results, knockouts){
+  return members.map(m=>{
+    let correct=0, called=0;
+    const tally = (key, win) => { const pk = preds[m.id] && preds[m.id][key]; if(!pk) return; called++; if(win===pk) correct++; };
+    for(const fx of FIXTURES){ const r=results[fx.id]; if(r) tally(fx.id, outcome(r)); }
+    for(const row of Object.values(knockouts||{})){
+      if(!TEAMS[row.home_team] || !TEAMS[row.away_team]) continue;            // both sides must be real teams
+      if(row.home_score==null || row.away_score==null) continue;             // and the match must have a score
+      tally("ko"+row.id, koWinner(row.home_score, row.away_score, row.home_score_penalties, row.away_score_penalties));
+    }
+    return { ...m, correct, called };
+  });
+}
+function PredictTab({ group, preds, onPick, mine, toggleMine, now, results, matches, knockouts }){
   const t = useT();
   const members = group.members;
   const managed = members.filter(m=>mine.includes(m.id));
@@ -1112,33 +1157,61 @@ function PredictTab({ group, preds, onPick, mine, toggleMine, now, results, matc
   // by several people, so we keep a list and join the names. Nothing here changes the allocation.
   const holders = useMemo(()=>{ const m={}; members.forEach(mem=>(group.alloc[mem.id]||[]).forEach(tid=>{ (m[tid]=m[tid]||[]).push(mem.name); })); return m; }, [group]);
   const holderNames = (tid) => { const a=holders[tid]; return (a && a.length) ? a.join(", ") : "-"; };
-  const setPick = (memId, fx, p) => {
-    if(now>=koOf(fx,matches) || results[fx.id]) return;
-    const next = (preds[memId]||{})[fx.id]===p ? null : p; // tapping the same pick toggles it off
-    onPick(memId, fx.id, next);
+  // Predictable/historical fixtures, unified across the group stage and the knockouts so both can be
+  // predicted in one list. Group games come from the static FIXTURES (behaviour unchanged). Knockout
+  // games come from the live feed and join the list ONLY once BOTH sides are real teams — while either
+  // slot is still a placeholder token (e.g. "W12" / "1A") the match is left out entirely, and a feed
+  // row with no kickoff yet stays out until it has one. Each item carries a unique prediction key
+  // ("ko"+match id for knockouts, which never collides with a group fixture id), the kickoff, any
+  // result, and whether a draw is a valid pick (group: yes; knockout: no — it resolves to a winner).
+  const items = useMemo(()=>{
+    const out = [];
+    for(const fx of FIXTURES){
+      const off = officialFor(fx, matches);
+      const res = results[fx.id] || null;
+      out.push({ key:fx.id, kind:"grp", home:fx.home, away:fx.away, ko:koOf(fx, matches),
+        res, live:!!(res && off && off.hasScore && isLiveStatus(off.status)),
+        chances:chancesFor(fx, matches), allowDraw:true, grp:fx.grp });
+    }
+    for(const row of Object.values(knockouts||{})){
+      if(!TEAMS[row.home_team] || !TEAMS[row.away_team]) continue;            // both sides must be real teams
+      const ko = row.kickoff ? Date.parse(row.kickoff) : NaN;
+      const hasScore = row.home_score!=null && row.away_score!=null;
+      const completed = (row.status||"")==="completed";
+      out.push({ key:"ko"+row.id, kind:"ko", home:row.home_team, away:row.away_team, ko,
+        res: hasScore ? { h:row.home_score, a:row.away_score } : null,
+        hp:row.home_score_penalties, ap:row.away_score_penalties,
+        pens:row.has_penalty_shootout, aet:row.has_extra_time,
+        live:!!(hasScore && isLiveStatus(row.status)),
+        chances:(!completed && row.home_odds!=null && row.draw_odds!=null && row.away_odds!=null)
+          ? { home:row.home_odds, draw:row.draw_odds, away:row.away_odds } : null,
+        allowDraw:false, stage:row.stage });
+    }
+    return out;
+  }, [matches, knockouts, results]);
+
+  const setPick = (memId, item, p) => {
+    if(now>=item.ko || item.res) return;                            // locks at kickoff, or once a result exists
+    const next = (preds[memId]||{})[item.key]===p ? null : p;       // tapping the same pick toggles it off
+    onPick(memId, item.key, next);
   };
 
-  const anyResult = FIXTURES.some(fx=>results[fx.id]);
-  const upcoming = FIXTURES.filter(fx=> now < koOf(fx,matches) && !results[fx.id]).sort((a,b)=>koOf(a,matches)-koOf(b,matches));
-  const reveal = FIXTURES.filter(fx=> now>=koOf(fx,matches) || results[fx.id]).sort((a,b)=>koOf(b,matches)-koOf(a,matches));
-  const pickedCount = (id) => upcoming.filter(fx=>(preds[id]||{})[fx.id]).length;
-  const upcomingHasChances = upcoming.some(fx=>chancesFor(fx,matches));
-  const revealHasChances = reveal.some(fx=>chancesFor(fx,matches));
+  const anyResult = items.some(it=>it.res);
+  const upcoming = items.filter(it=> !Number.isNaN(it.ko) && now < it.ko && !it.res).sort((a,b)=>a.ko-b.ko);
+  const reveal = items.filter(it=> (!Number.isNaN(it.ko) && now>=it.ko) || it.res).sort((a,b)=>b.ko-a.ko);
+  const pickedCount = (id) => upcoming.filter(it=>(preds[id]||{})[it.key]).length;
+  const upcomingHasChances = upcoming.some(it=>it.chances);
+  const revealHasChances = reveal.some(it=>it.chances);
+  // Top-left tag on each card: the group label for group games, the compact knockout-stage tag (R32,
+  // QF, …) for knockout games, falling back to the raw stage name for any unmapped stage.
+  const topLabel = (it) => it.kind==="ko" ? (KO_STAGE_TAG[it.stage]?t(KO_STAGE_TAG[it.stage]):it.stage) : t("common.grpX",{g:it.grp});
 
   const board = useMemo(()=>{
-    const rows = members.map(m=>{
-      let correct=0, called=0;
-      for(const fx of FIXTURES){
-        const res = results[fx.id]; if(!res) continue;
-        const pk = preds[m.id] && preds[m.id][fx.id]; if(!pk) continue;
-        called++; if(outcome(res)===pk) correct++;
-      }
-      return { ...m, correct, called };
-    });
+    const rows = predictionTallies(members, preds, results, knockouts);
     rows.sort((a,b)=> b.correct-a.correct || b.called-a.called || a.name.localeCompare(b.name));
     let rank=0,prev=null; rows.forEach((r,i)=>{ if(prev===null||r.correct!==prev){rank=i+1;prev=r.correct;} r.rank=rank; });
     return rows;
-  }, [members, preds, results]);
+  }, [members, preds, results, knockouts]);
 
   return (
     <div>
@@ -1177,35 +1250,41 @@ function PredictTab({ group, preds, onPick, mine, toggleMine, now, results, matc
           : <>
             {upcomingHasChances && <p className="chance-note">{t("predict.chanceNote")}</p>}
             <div className="fixtures">
-              {upcoming.map(fx=>(
-                <div className="fx" key={fx.id}>
-                  <div className="fx-top"><span className="fx-grp">{t("common.grpX",{g:fx.grp})}</span><span className="fx-date">{fmtKickoff(koOf(fx,matches))}</span></div>
+              {upcoming.map(it=>{
+                // Knockout games resolve to a winner, so they offer the two teams only — no draw pick.
+                const opts = it.allowDraw
+                  ? [["home",it.home],["draw",t("common.draw")],["away",it.away]]
+                  : [["home",it.home],["away",it.away]];
+                return (
+                <div className="fx" key={it.key}>
+                  <div className="fx-top"><span className="fx-grp">{topLabel(it)}</span><span className="fx-date">{fmtKickoff(it.ko)}</span></div>
                   <div className="fx-main">
-                    <div className="fx-team"><span className="flag">{TEAMS[fx.home].f}</span><span>{TEAMS[fx.home].n}</span></div>
+                    <div className="fx-team"><span className="flag">{TEAMS[it.home].f}</span><span>{TEAMS[it.home].n}</span></div>
                     <span className="fx-mid">{t("common.versus")}</span>
-                    <div className="fx-team r"><span>{TEAMS[fx.away].n}</span><span className="flag">{TEAMS[fx.away].f}</span></div>
+                    <div className="fx-team r"><span>{TEAMS[it.away].n}</span><span className="flag">{TEAMS[it.away].f}</span></div>
                   </div>
                   <div className="fx-holders">
-                    <span className="fx-holder">{holderNames(fx.home)}</span>
+                    <span className="fx-holder">{holderNames(it.home)}</span>
                     <span className="fx-mid">{t("common.versus")}</span>
-                    <span className="fx-holder r">{holderNames(fx.away)}</span>
+                    <span className="fx-holder r">{holderNames(it.away)}</span>
                   </div>
-                  <Chances fx={fx} matches={matches}/>
+                  <ChanceLine home={it.home} away={it.away} c={it.chances}/>
                   {managed.map(m=>{
-                    const pick = (preds[m.id]||{})[fx.id];
+                    const pick = (preds[m.id]||{})[it.key];
                     return (
                       <div className="pick-line" key={m.id}>
                         {managed.length>1 && <span className="pick-who">{m.name}</span>}
                         <div className="pred-row">
-                          {[["home",fx.home],["draw",t("common.draw")],["away",fx.away]].map(([p,lbl])=>(
-                            <button key={p} className={"pred-btn"+(pick===p?" on":"")} onClick={()=>setPick(m.id,fx,p)}>{lbl}</button>
+                          {opts.map(([p,lbl])=>(
+                            <button key={p} className={"pred-btn"+(pick===p?" on":"")} onClick={()=>setPick(m.id,it,p)}>{lbl}</button>
                           ))}
                         </div>
                       </div>
                     );
                   })}
                 </div>
-              ))}
+                );
+              })}
             </div></>}
         </>}
 
@@ -1213,26 +1292,26 @@ function PredictTab({ group, preds, onPick, mine, toggleMine, now, results, matc
         <div className="md-head">{t("predict.resultsCalls")}</div>
         {revealHasChances && <p className="chance-note">{t("predict.chanceNote")}</p>}
         <div className="fixtures">
-          {reveal.map(fx=>{
-            const res = results[fx.id];
-            const act = res ? outcome(res) : null;
-            const off = officialFor(fx, matches);
-            const live = res && off && off.hasScore && isLiveStatus(off.status);
+          {reveal.map(it=>{
+            const res = it.res;
+            // Knockouts resolve to who progressed (penalty winner included); group games keep outcome().
+            const act = res ? (it.kind==="ko" ? koWinner(res.h, res.a, it.hp, it.ap) : outcome(res)) : null;
+            const note = res && it.kind==="ko" ? koDecidedNote(t, it.pens, it.hp, it.ap, it.aet) : "";
             return (
-              <div className={"fx"+(res?" done":"")} key={fx.id}>
-                <div className="fx-top"><span className="fx-grp">{t("common.grpX",{g:fx.grp})}</span>
-                  <span className="fx-date">{res? `${live?t("common.live"):t("common.fullTime")} ${res.h}–${res.a}` : t("predict.kickedOff")}</span></div>
+              <div className={"fx"+(res?" done":"")} key={it.key}>
+                <div className="fx-top"><span className="fx-grp">{topLabel(it)}</span>
+                  <span className="fx-date">{res? `${it.live?t("common.live"):t("common.fullTime")} ${res.h}–${res.a}${note}` : t("predict.kickedOff")}</span></div>
                 <div className="fx-main">
-                  <div className="fx-team"><span className="flag">{TEAMS[fx.home].f}</span><span>{TEAMS[fx.home].n}</span></div>
+                  <div className="fx-team"><span className="flag">{TEAMS[it.home].f}</span><span>{TEAMS[it.home].n}</span></div>
                   <span className="fx-mid">{t("common.versus")}</span>
-                  <div className="fx-team r"><span>{TEAMS[fx.away].n}</span><span className="flag">{TEAMS[fx.away].f}</span></div>
+                  <div className="fx-team r"><span>{TEAMS[it.away].n}</span><span className="flag">{TEAMS[it.away].f}</span></div>
                 </div>
-                <Chances fx={fx} matches={matches}/>
+                <ChanceLine home={it.home} away={it.away} c={it.chances}/>
                 <div className="calls">
                   {members.map(m=>{
-                    const pk = preds[m.id] && preds[m.id][fx.id];
+                    const pk = preds[m.id] && preds[m.id][it.key];
                     const right = act && pk ? pk===act : null;
-                    const lbl = !pk ? t("predict.noPick") : pk==="draw" ? t("common.draw") : pk==="home" ? TEAMS[fx.home].n : TEAMS[fx.away].n;
+                    const lbl = !pk ? t("predict.noPick") : pk==="draw" ? t("common.draw") : pk==="home" ? TEAMS[it.home].n : TEAMS[it.away].n;
                     return (
                       <div className={"call"+(right===true?" hit":right===false?" miss":"")} key={m.id}>
                         <span className="call-name">{m.name}{mine.includes(m.id) && <span className="call-mine">{t("predict.yours")}</span>}</span>
@@ -1405,7 +1484,7 @@ function KoMatch({ row, holderLine }){
   return (
     <div className={"fx"+(hasScore?" done":"")}>
       <div className="fx-top"><span className="fx-grp">{KO_STAGE_TAG[row.stage]?t(KO_STAGE_TAG[row.stage]):""}</span>
-        <span className="fx-date">{hasScore ? `${live?t("common.live"):t("common.fullTime")} ${row.home_score}–${row.away_score}` : (Number.isNaN(ko) ? t("ko.tbs") : fmtKickoff(ko))}</span></div>
+        <span className="fx-date">{hasScore ? `${live?t("common.live"):t("common.fullTime")} ${row.home_score}–${row.away_score}${koDecidedNote(t, row.has_penalty_shootout, row.home_score_penalties, row.away_score_penalties, row.has_extra_time)}` : (Number.isNaN(ko) ? t("ko.tbs") : fmtKickoff(ko))}</span></div>
       <div className="fx-main">
         <KoTeam tok={row.home_team}/>
         <span className="fx-mid">{t("common.versus")}</span>

@@ -180,6 +180,16 @@ Deno.serve(async () => {
       let awayTeam = awayId ?? m.away_team?.abbreviation ?? null;
       let hs = m.home_score ?? null;
       let as = m.away_score ?? null;
+      // Extra-time / penalty-shootout detail, read from the same /matches payload as the scores
+      // (columns added in 03_matches_et_penalties.sql). Defensive exactly like every field here:
+      // read what the feed gives and default to null when absent. Note these ride in the matches
+      // payload itself — NOT a separate fetch like /odds — so if that fetch fails, bdlFetch throws
+      // and the whole run aborts before any upsert (see the outer try/catch), which means a missing
+      // field can never blank an existing value. A null here is the correct value: it simply means
+      // the feed reports no shootout / extra time for that match (e.g. not played, or won in normal
+      // time). The penalty score is oriented to the app's home/away just like the main score.
+      let hsp = m.home_score_penalties ?? null;
+      let asp = m.away_score_penalties ?? null;
       let flipped = false; // true when the app fixture's home/away is the reverse of BALLDONTLIE's
 
       if (group && homeId && awayId) {
@@ -187,7 +197,11 @@ Deno.serve(async () => {
         if (fx) {
           fixture = fx.id; grp = fx.grp; matchedFixtures.add(fx.id);
           homeTeam = fx.home; awayTeam = fx.away;
-          if (homeId !== fx.home) { const t = hs; hs = as; as = t; flipped = true; } // orient scores to the app's home/away
+          if (homeId !== fx.home) {              // orient to the app's home/away
+            const ts = hs; hs = as; as = ts;     // scores
+            const tp = hsp; hsp = asp; asp = tp; // and the penalty-shootout score the same way
+            flipped = true;
+          }
         } else {
           unmatched.push({ match_number: m.match_number, group: m.group?.name, home: m.home_team?.abbreviation, away: m.away_team?.abbreviation, homeId, awayId, reason: "pair-not-in-app-groups" });
         }
@@ -207,6 +221,13 @@ Deno.serve(async () => {
         away_team: awayTeam,
         home_score: hs,
         away_score: as,
+        // Extra-time / penalty detail. Included on EVERY row (value or null) so the bulk upsert keeps
+        // a uniform column set; null where the feed has no such data for this match. has_extra_time /
+        // has_penalty_shootout are match-level booleans, so they are not orientation-dependent.
+        home_score_penalties: hsp,
+        away_score_penalties: asp,
+        has_extra_time: m.has_extra_time ?? null,
+        has_penalty_shootout: m.has_penalty_shootout ?? null,
         updated_at: new Date().toISOString(),
       };
       // Chance percentages: only when the odds fetch succeeded (keeps every row's columns uniform,
