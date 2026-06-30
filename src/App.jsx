@@ -1011,7 +1011,7 @@ function GroupView({ group, preds, onPick, mine, toggleMine, saveGroup, exit, is
         <CodePill code={group.code}/>
       </div>
       <ShareInvite code={group.code}/>
-      <Banner nextFx={nextFx} lastFx={lastFx} now={now} leader={anyPlayed?standings[0]:null} predLeader={predLeader} results={results} matches={matches}/>
+      <Banner nextFx={nextFx} lastFx={lastFx} now={now} leader={anyPlayed?standings[0]:null} predLeader={predLeader} results={results} matches={matches} knockouts={knockouts} standings={standings}/>
       {isCreator && <button className="replay-draw" onClick={onCeremony}><Sparkles size={14}/> {t("group.watchAgain")}</button>}
       <div className="tabs">
         {tabs.map(t=>(<button key={t.k} className={"tab"+(tab===t.k?" on":"")} onClick={()=>setTab(t.k)}>{t.icon}<span>{t.label}</span></button>))}
@@ -1048,9 +1048,18 @@ function computeTitles(standings, anyPlayed, group, effResults){
 }
 
 /* ------------------------------ BANNER ---------------------------- */
-function Banner({ nextFx, lastFx, now, leader, predLeader, results, matches }){
+function Banner({ nextFx, lastFx, now, leader, predLeader, results, matches, knockouts, standings }){
   const t = useT();
   const cd = nextFx ? countdown(koOf(nextFx, matches) - now) : null;
+  // Teams-still-alive front-runner for the post-group banner: reuses koTeamState (the exact rule behind
+  // the "Teams still in" board and the Squads strike-through) so all three agree. Alive count desc, then
+  // points desc — the same tie-break as the board. Null until the knockouts exist.
+  const aliveLeader = useMemo(()=>{
+    const ko = koTeamState(knockouts);
+    if(!ko.hasKo || !standings || !standings.length) return null;
+    return standings.map(s=>({ name:s.name, pts:s.pts, alive:s.teams.filter(x=>ko.isIn(x.id)).length }))
+      .sort((a,b)=> b.alive-a.alive || b.pts-a.pts || a.name.localeCompare(b.name))[0];
+  }, [standings, knockouts]);
   return (
     <div className="banner">
       {leader && <div className="brag"><Crown size={15}/> <b>{leader.name}</b> {t("banner.leads")} · {leader.pts} {t("common.pts")}</div>}
@@ -1061,6 +1070,10 @@ function Banner({ nextFx, lastFx, now, leader, predLeader, results, matches }){
             <div className="match"><Side id={nextFx.home}/><span className="vs">{t("common.versus")}</span><Side id={nextFx.away} right/></div>
             {cd && !cd.done && <div className="cd display">{cd.d}{t("cd.d")} {cd.h}{t("cd.h")} {cd.m}{t("cd.m")} {cd.s}{t("cd.s")}</div>}
             <div className="bcell-sub">{t("common.groupX",{g:nextFx.grp})} · {fmtKickoff(koOf(nextFx, matches))}</div>
+          </div>
+        ) : aliveLeader ? (
+          <div className="bcell next">
+            <div className="lead"><div className="lead-lbl">{t("alive.title")}</div><div className="lead-name">{aliveLeader.name}</div><div className="lead-val">{aliveLeader.alive} {t("alive.in")}</div></div>
           </div>
         ) : <div className="bcell next"><div className="bcell-lbl">{t("banner.allIn")}</div></div>}
         {(leader || predLeader) ? (
@@ -1095,7 +1108,27 @@ function RanksTab({ standings, titles, anyPlayed, pool, project, knockouts }){
   const maxAlive = Math.max(1, ...aliveRows.map(r=>r.alive));
   return (
     <div>
-      <div className="section-head"><span className="display sh-title">{t("ranks.title")}</span>
+      {/* Teams still in — shown ABOVE the points board once the knockouts exist. */}
+      {koState.hasKo && <>
+        <div className="section-head"><span className="display sh-title">{t("alive.title")}</span>
+          <span className="sh-sub">{t("alive.sub")}</span></div>
+        <div className="board">
+          {aliveRows.map(s=>(
+            <div key={s.id} className={"lb-row"+(s.rank===1?" lead":"")}>
+              <div className={"lb-rank display"+(s.rank<=3?" medal m"+s.rank:"")}>{s.rank}</div>
+              <div className="lb-main">
+                <div className="lb-name">{s.name}</div>
+                <div className="lb-bar-wrap"><div className="lb-bar" style={{width:`${(s.alive/maxAlive)*100}%`}}/></div>
+                <div className="lb-sub">{t("common.teamsCount",{n:s.total})}</div>
+              </div>
+              <div className="lb-pts display">{s.alive}<span>{t("alive.in")}</span></div>
+            </div>
+          ))}
+        </div>
+        <p className="hint center"><Info size={13}/> {t("alive.hint")}</p>
+      </>}
+
+      <div className={"section-head"+(koState.hasKo?" section-gap":"")}><span className="display sh-title">{t("ranks.title")}</span>
         <span className="sh-sub">{t("group.membersCount",{n:standings.length})} · {project?t("ranks.projected"):(anyPlayed?t("ranks.live"):t("ranks.notStarted"))}</span></div>
       {!anyPlayed && <p className="empty-note"><Sparkles size={15}/> {t("ranks.empty")}</p>}
       <div className="board">
@@ -1114,25 +1147,6 @@ function RanksTab({ standings, titles, anyPlayed, pool, project, knockouts }){
         ))}
       </div>
       <p className="hint center"><Info size={13}/> {t("ranks.hint")}</p>
-
-      {koState.hasKo && <>
-        <div className="section-head alive-head"><span className="display sh-title">{t("alive.title")}</span>
-          <span className="sh-sub">{t("alive.sub")}</span></div>
-        <div className="board">
-          {aliveRows.map(s=>(
-            <div key={s.id} className={"lb-row"+(s.rank===1?" lead":"")}>
-              <div className={"lb-rank display"+(s.rank<=3?" medal m"+s.rank:"")}>{s.rank}</div>
-              <div className="lb-main">
-                <div className="lb-name">{s.name}</div>
-                <div className="lb-bar-wrap"><div className="lb-bar" style={{width:`${(s.alive/maxAlive)*100}%`}}/></div>
-                <div className="lb-sub">{t("common.teamsCount",{n:s.total})}</div>
-              </div>
-              <div className="lb-pts display">{s.alive}<span>{t("alive.in")}</span></div>
-            </div>
-          ))}
-        </div>
-        <p className="hint center"><Info size={13}/> {t("alive.hint")}</p>
-      </>}
     </div>
   );
 }
@@ -1956,7 +1970,7 @@ const CSS = `
 .replay-draw:active{transform:scale(.99)}
 .crystal.on{background:rgba(255,210,63,.16);border-color:rgba(255,210,63,.4);color:#ffe89a}
 .section-head{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:12px}
-.section-head.alive-head{margin-top:24px}
+.section-head.section-gap{margin-top:24px}
 .sh-title{font-size:22px}
 .sh-sub{font-size:11.5px;color:rgba(251,247,236,.55);letter-spacing:.04em;text-transform:uppercase;font-weight:600}
 .empty-note{display:flex;gap:8px;align-items:center;justify-content:center;text-align:center;background:rgba(255,255,255,.05);border:1px dashed var(--line);border-radius:13px;padding:14px;font-size:13px;color:rgba(251,247,236,.7);margin-bottom:12px}
