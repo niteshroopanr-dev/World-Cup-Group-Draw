@@ -1022,7 +1022,7 @@ function GroupView({ group, preds, onPick, mine, toggleMine, saveGroup, exit, is
           <Wand2 size={16}/> {project ? t("group.crystalOn") : t("group.crystalOff")}
         </button>}
 
-      {tab==="ranks" && <RanksTab standings={standings} titles={titles} anyPlayed={anyPlayed} pool={group.pool} project={project}/>}
+      {tab==="ranks" && <RanksTab standings={standings} titles={titles} anyPlayed={anyPlayed} pool={group.pool} project={project} knockouts={knockouts}/>}
       {tab==="squads" && <SquadsTab standings={standings} titles={titles} anyPlayed={anyPlayed} teamHolders={teamHolders} knockouts={knockouts} openCard={openCard} setOpenCard={setOpenCard}/>}
       {tab==="predict" && <PredictTab group={group} preds={preds} onPick={onPick} mine={mine} toggleMine={toggleMine} now={now} results={results} matches={matches} knockouts={knockouts}/>}
       {tab==="cup" && <CupTab group={group} nextFx={nextFx} results={results} matches={matches} knockouts={knockouts}/>}
@@ -1076,11 +1076,23 @@ function Banner({ nextFx, lastFx, now, leader, predLeader, results, matches }){
 const Side = ({id, right}) => (<span className={"side"+(right?" r":"")}><span className="flag">{TEAMS[id].f}</span><span className="abbr">{id}</span></span>);
 
 /* ------------------------------ RANKS ----------------------------- */
-function RanksTab({ standings, titles, anyPlayed, pool, project }){
+function RanksTab({ standings, titles, anyPlayed, pool, project, knockouts }){
   const t = useT();
   const max = Math.max(1, ...standings.map(s=>s.pts));
   const top = standings.length ? standings[0].pts : 0;
   const payouts = pool.amount>0 ? computePayouts(standings, pool) : null;
+  // Second, separate leaderboard: members ranked by how many of their teams are still alive. Reuses
+  // koTeamState — the EXACT rule behind the Squads strike-through — so the two can never disagree.
+  // Rank by alive count desc, then existing points desc; equal on both → shared rank. Shown only once
+  // the knockouts exist. Display-only: no scoring, prediction or pot change.
+  const koState = koTeamState(knockouts);
+  const aliveRows = useMemo(()=>{
+    const rows = standings.map(s=>({ id:s.id, name:s.name, pts:s.pts, total:s.teams.length, alive:s.teams.filter(x=>koState.isIn(x.id)).length }));
+    rows.sort((a,b)=> b.alive-a.alive || b.pts-a.pts || a.name.localeCompare(b.name));
+    let rank=0,pa=null,pp=null; rows.forEach((r,i)=>{ if(pa===null||r.alive!==pa||r.pts!==pp){rank=i+1;pa=r.alive;pp=r.pts;} r.rank=rank; });
+    return rows;
+  }, [standings, knockouts]);
+  const maxAlive = Math.max(1, ...aliveRows.map(r=>r.alive));
   return (
     <div>
       <div className="section-head"><span className="display sh-title">{t("ranks.title")}</span>
@@ -1102,6 +1114,25 @@ function RanksTab({ standings, titles, anyPlayed, pool, project }){
         ))}
       </div>
       <p className="hint center"><Info size={13}/> {t("ranks.hint")}</p>
+
+      {koState.hasKo && <>
+        <div className="section-head alive-head"><span className="display sh-title">{t("alive.title")}</span>
+          <span className="sh-sub">{t("alive.sub")}</span></div>
+        <div className="board">
+          {aliveRows.map(s=>(
+            <div key={s.id} className={"lb-row"+(s.rank===1?" lead":"")}>
+              <div className={"lb-rank display"+(s.rank<=3?" medal m"+s.rank:"")}>{s.rank}</div>
+              <div className="lb-main">
+                <div className="lb-name">{s.name}</div>
+                <div className="lb-bar-wrap"><div className="lb-bar" style={{width:`${(s.alive/maxAlive)*100}%`}}/></div>
+                <div className="lb-sub">{t("common.teamsCount",{n:s.total})}</div>
+              </div>
+              <div className="lb-pts display">{s.alive}<span>{t("alive.in")}</span></div>
+            </div>
+          ))}
+        </div>
+        <p className="hint center"><Info size={13}/> {t("alive.hint")}</p>
+      </>}
     </div>
   );
 }
@@ -1925,6 +1956,7 @@ const CSS = `
 .replay-draw:active{transform:scale(.99)}
 .crystal.on{background:rgba(255,210,63,.16);border-color:rgba(255,210,63,.4);color:#ffe89a}
 .section-head{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:12px}
+.section-head.alive-head{margin-top:24px}
 .sh-title{font-size:22px}
 .sh-sub{font-size:11.5px;color:rgba(251,247,236,.55);letter-spacing:.04em;text-transform:uppercase;font-weight:600}
 .empty-note{display:flex;gap:8px;align-items:center;justify-content:center;text-align:center;background:rgba(255,255,255,.05);border:1px dashed var(--line);border-radius:13px;padding:14px;font-size:13px;color:rgba(251,247,236,.7);margin-bottom:12px}

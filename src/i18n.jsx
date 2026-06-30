@@ -213,6 +213,10 @@ const translations = {
     "ranks.empty": "The draw is set. Once games kick off, the group leaderboard comes alive.",
     "ranks.offTop": "{n} off top",
     "ranks.hint": "Scores use standard World Cup points, 3 for a win and 1 for a draw, added up across all of a member's teams, so they match the real group tables.",
+    "alive.title": "Teams still in",
+    "alive.sub": "ranked by teams still alive",
+    "alive.in": "still in",
+    "alive.hint": "How many of each member's teams are still alive in the knockouts. Ties are split by points.",
 
     // squads
     "squads.dupesPre": "With more than 12 members, every team is still allocated and squads are balanced to be about equally strong, sharing the elite and strong sides out evenly first, so some teams get held by more than one member. A ",
