@@ -236,6 +236,11 @@ const translations = {
     "predict.resultsCalls": "Results & everyone's calls",
     "predict.kickedOff": "Kicked off",
     "predict.noPick": "no pick",
+    "predict.koNormalTime": "Normal time",
+    "predict.koExtraTime": "Extra time",
+    "predict.koPenalties": "Penalties",
+    "predict.koCallNt": "{team} · 90'",
+    "predict.koCallEt": "{team} · a.e.t.",
 
     // cup / tournament
     "cup.title": "The tournament",

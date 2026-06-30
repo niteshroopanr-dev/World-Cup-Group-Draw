@@ -248,6 +248,32 @@ const koWinner = (h, a, hp, ap) =>
 const koDecidedNote = (t, hasPens, hp, ap, hasEt) =>
   (hasPens && hp!=null && ap!=null) ? ` · ${t("ko.pens")} ${hp}–${ap}`
   : hasEt ? ` ${t("ko.aet")}` : "";
+// How a completed knockout was actually decided: "pens" (shootout) > "et" (extra time) > "nt".
+const koManner = (hasEt, hasPens) => hasPens ? "pens" : hasEt ? "et" : "nt";
+// Decode a stored knockout pick into { side, manner }. New combined picks: "home:nt","away:nt",
+// "home:et","away:et" (team + how it's decided) and "pens" (any shootout, no winner named). Legacy
+// picks from the previous winner-only system are a bare "home"/"away" → side set, manner null (so
+// they score on winner only, ignoring manner). Anything unrecognised → both null (never scored right).
+const parseKoPick = (pick) => {
+  if(pick==="pens") return { side:null, manner:"pens" };
+  if(pick==="home" || pick==="away") return { side:pick, manner:null };   // legacy winner-only
+  const m = /^(home|away):(nt|et)$/.exec(pick||"");
+  return m ? { side:m[1], manner:m[2] } : { side:null, manner:null };
+};
+// Is a knockout pick correct? Correct-or-not, no partial credit:
+//   penalties option   → the match was decided by a shootout (whoever won it);
+//   normal-time option → chosen team progressed AND it was decided in normal time;
+//   extra-time option  → chosen team progressed AND it went to extra time but NOT a shootout;
+//   legacy winner-only → chosen team progressed, regardless of manner.
+// "Who progressed" is koWinner (penalties included); manner comes from has_extra_time / has_penalty_shootout.
+const koPickCorrect = (pick, h, a, hp, ap, hasEt, hasPens) => {
+  const { side, manner } = parseKoPick(pick);
+  const actual = koManner(hasEt, hasPens);
+  if(manner==="pens") return actual==="pens";
+  const prog = koWinner(h, a, hp, ap);
+  if(manner==null) return side!=null && prog===side;                       // legacy winner-only
+  return prog===side && actual===manner;                                   // nt / et: right team AND right manner
+};
 
 // One team's score from a results map: plain 3/1/0, matching the Cup group tables (no bonuses).
 const teamStats = (id, results) => {
@@ -1138,15 +1164,42 @@ function ChanceLine({ home, away, c }){
 function predictionTallies(members, preds, results, knockouts){
   return members.map(m=>{
     let correct=0, called=0;
-    const tally = (key, win) => { const pk = preds[m.id] && preds[m.id][key]; if(!pk) return; called++; if(win===pk) correct++; };
-    for(const fx of FIXTURES){ const r=results[fx.id]; if(r) tally(fx.id, outcome(r)); }
+    // score(key, isRight): count a member's pick on `key` if they made one; correct when isRight(pick).
+    const score = (key, isRight) => { const pk = preds[m.id] && preds[m.id][key]; if(!pk) return; called++; if(isRight(pk)) correct++; };
+    for(const fx of FIXTURES){ const r=results[fx.id]; if(r) score(fx.id, pk => outcome(r)===pk); }   // group: unchanged
     for(const row of Object.values(knockouts||{})){
       if(!TEAMS[row.home_team] || !TEAMS[row.away_team]) continue;            // both sides must be real teams
       if(row.home_score==null || row.away_score==null) continue;             // and the match must have a score
-      tally("ko"+row.id, koWinner(row.home_score, row.away_score, row.home_score_penalties, row.away_score_penalties));
+      score("ko"+row.id, pk => koPickCorrect(pk, row.home_score, row.away_score, row.home_score_penalties, row.away_score_penalties, row.has_extra_time, row.has_penalty_shootout));
     }
     return { ...m, correct, called };
   });
+}
+// Readable label for a member's combined knockout pick in the results/calls view. Penalties → "Penalties";
+// a team + manner → "{team} · 90'" / "{team} · a.e.t."; a legacy winner-only pick → just the team name.
+function koPickLabel(pick, homeId, awayId, t){
+  const { side, manner } = parseKoPick(pick);
+  if(manner==="pens") return t("predict.koPenalties");
+  const name = side==="home" ? TEAMS[homeId].n : side==="away" ? TEAMS[awayId].n : null;
+  if(!name) return t("predict.noPick");
+  if(manner==="nt") return t("predict.koCallNt", { team:name });
+  if(manner==="et") return t("predict.koCallEt", { team:name });
+  return name;                                                               // legacy winner-only
+}
+// One combined knockout pick: who progresses (home/away) crossed with how (normal time / extra time),
+// plus a single penalties option. One selection per match — only one of the five can be active.
+function KoPickChoice({ item, pick, onPick }){
+  const t = useT();
+  const btn = (v, lbl) => <button className={"pred-btn"+(pick===v?" on":"")} onClick={()=>onPick(v)}>{lbl}</button>;
+  return (
+    <div className="ko-picks">
+      <div className="ko-grp"><span className="ko-grp-lbl">{t("predict.koNormalTime")}</span>
+        <div className="pred-row">{btn("home:nt", item.home)}{btn("away:nt", item.away)}</div></div>
+      <div className="ko-grp"><span className="ko-grp-lbl">{t("predict.koExtraTime")}</span>
+        <div className="pred-row">{btn("home:et", item.home)}{btn("away:et", item.away)}</div></div>
+      <button className={"pred-btn ko-pens-btn"+(pick==="pens"?" on":"")} onClick={()=>onPick("pens")}>{t("predict.koPenalties")}</button>
+    </div>
+  );
 }
 function PredictTab({ group, preds, onPick, mine, toggleMine, now, results, matches, knockouts }){
   const t = useT();
@@ -1251,8 +1304,9 @@ function PredictTab({ group, preds, onPick, mine, toggleMine, now, results, matc
             {upcomingHasChances && <p className="chance-note">{t("predict.chanceNote")}</p>}
             <div className="fixtures">
               {upcoming.map(it=>{
-                // Knockout games resolve to a winner, so they offer the two teams only — no draw pick.
-                const opts = it.allowDraw
+                // Group games: Home / Draw / Away. Knockout games: the combined winner+manner choice
+                // (see KoPickChoice) — five options resolving both who goes through and how.
+                const grpOpts = it.allowDraw
                   ? [["home",it.home],["draw",t("common.draw")],["away",it.away]]
                   : [["home",it.home],["away",it.away]];
                 return (
@@ -1272,13 +1326,15 @@ function PredictTab({ group, preds, onPick, mine, toggleMine, now, results, matc
                   {managed.map(m=>{
                     const pick = (preds[m.id]||{})[it.key];
                     return (
-                      <div className="pick-line" key={m.id}>
+                      <div className={"pick-line"+(it.kind==="ko"?" ko":"")} key={m.id}>
                         {managed.length>1 && <span className="pick-who">{m.name}</span>}
-                        <div className="pred-row">
-                          {opts.map(([p,lbl])=>(
-                            <button key={p} className={"pred-btn"+(pick===p?" on":"")} onClick={()=>setPick(m.id,it,p)}>{lbl}</button>
-                          ))}
-                        </div>
+                        {it.kind==="ko"
+                          ? <KoPickChoice item={it} pick={pick} onPick={(p)=>setPick(m.id,it,p)}/>
+                          : <div className="pred-row">
+                              {grpOpts.map(([p,lbl])=>(
+                                <button key={p} className={"pred-btn"+(pick===p?" on":"")} onClick={()=>setPick(m.id,it,p)}>{lbl}</button>
+                              ))}
+                            </div>}
                       </div>
                     );
                   })}
@@ -1294,9 +1350,12 @@ function PredictTab({ group, preds, onPick, mine, toggleMine, now, results, matc
         <div className="fixtures">
           {reveal.map(it=>{
             const res = it.res;
-            // Knockouts resolve to who progressed (penalty winner included); group games keep outcome().
-            const act = res ? (it.kind==="ko" ? koWinner(res.h, res.a, it.hp, it.ap) : outcome(res)) : null;
             const note = res && it.kind==="ko" ? koDecidedNote(t, it.pens, it.hp, it.ap, it.aet) : "";
+            // Is one member's pick correct on this match? Knockouts use the combined winner+manner rule
+            // (koPickCorrect, which also handles legacy winner-only picks); group games keep outcome().
+            const isRight = (pk) => (!pk || !res) ? null
+              : it.kind==="ko" ? koPickCorrect(pk, res.h, res.a, it.hp, it.ap, it.aet, it.pens)
+              : outcome(res)===pk;
             return (
               <div className={"fx"+(res?" done":"")} key={it.key}>
                 <div className="fx-top"><span className="fx-grp">{topLabel(it)}</span>
@@ -1310,8 +1369,10 @@ function PredictTab({ group, preds, onPick, mine, toggleMine, now, results, matc
                 <div className="calls">
                   {members.map(m=>{
                     const pk = preds[m.id] && preds[m.id][it.key];
-                    const right = act && pk ? pk===act : null;
-                    const lbl = !pk ? t("predict.noPick") : pk==="draw" ? t("common.draw") : pk==="home" ? TEAMS[it.home].n : TEAMS[it.away].n;
+                    const right = isRight(pk);
+                    const lbl = !pk ? t("predict.noPick")
+                      : it.kind==="ko" ? koPickLabel(pk, it.home, it.away, t)
+                      : pk==="draw" ? t("common.draw") : pk==="home" ? TEAMS[it.home].n : TEAMS[it.away].n;
                     return (
                       <div className={"call"+(right===true?" hit":right===false?" miss":"")} key={m.id}>
                         <span className="call-name">{m.name}{mine.includes(m.id) && <span className="call-mine">{t("predict.yours")}</span>}</span>
@@ -1921,6 +1982,13 @@ const CSS = `
 .chance-note{font-size:11px;color:rgba(251,247,236,.45);margin:-2px 0 9px;line-height:1.4}
 .pred-btn{background:rgba(255,255,255,.06);border:1px solid var(--line);color:rgba(251,247,236,.8);font-family:'Outfit';font-weight:600;font-size:13px;padding:6px 12px;border-radius:9px;cursor:pointer}
 .pred-btn.on{background:rgba(57,169,219,.22);border-color:rgba(57,169,219,.55);color:#bfe8fa}
+/* Knockout combined pick: who progresses (per row) crossed with how (normal time / extra time), plus a
+   full-width penalties option. Reuses .pred-btn styling; only the layout is new. */
+.pick-line.ko{align-items:flex-start}
+.pick-line.ko .ko-picks{flex:1;display:flex;flex-direction:column;gap:7px;min-width:0}
+.pick-line.ko .ko-grp{display:flex;align-items:center;gap:9px}
+.pick-line.ko .ko-grp-lbl{font-size:10.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:rgba(251,247,236,.55);flex:none;width:80px}
+.pick-line.ko .ko-pens-btn{flex:none;width:100%}
 .locked-row{color:rgba(251,247,236,.55)}
 .locked-row svg{flex:none}
 .pick-locked{font-size:12px;font-weight:600}
