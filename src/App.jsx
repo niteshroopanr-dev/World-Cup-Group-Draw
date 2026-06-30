@@ -274,6 +274,26 @@ const koPickCorrect = (pick, h, a, hp, ap, hasEt, hasPens) => {
   if(manner==null) return side!=null && prog===side;                       // legacy winner-only
   return prog===side && actual===manner;                                   // nt / et: right team AND right manner
 };
+// Which teams are still in the tournament, from the knockout feed. A team is STILL IN if it reached the
+// knockouts (appears as a real team in any slot) and has not lost a completed knockout match (koWinner
+// shows the other side went through). It is ELIMINATED if it never reached the knockouts, or lost one.
+// `hasKo` is false until at least one real team appears in a slot (group stage / data not loaded yet),
+// in which case nothing is treated as eliminated. Display-only; never touches scoring or allocation.
+function koTeamState(knockouts){
+  const qualified = new Set(), lost = new Set();
+  for(const row of Object.values(knockouts||{})){
+    const h = TEAMS[row.home_team] ? row.home_team : null;
+    const a = TEAMS[row.away_team] ? row.away_team : null;
+    if(h) qualified.add(h);
+    if(a) qualified.add(a);
+    if(h && a && (row.status||"")==="completed" && row.home_score!=null && row.away_score!=null){
+      const w = koWinner(row.home_score, row.away_score, row.home_score_penalties, row.away_score_penalties);
+      if(w==="home") lost.add(a); else if(w==="away") lost.add(h);          // the non-progressing side is out
+    }
+  }
+  const hasKo = qualified.size > 0;
+  return { hasKo, isIn: (id) => !hasKo || (qualified.has(id) && !lost.has(id)) };
+}
 
 // One team's score from a results map: plain 3/1/0, matching the Cup group tables (no bonuses).
 const teamStats = (id, results) => {
@@ -1001,9 +1021,9 @@ function GroupView({ group, preds, onPick, mine, toggleMine, saveGroup, exit, is
         </button>}
 
       {tab==="ranks" && <RanksTab standings={standings} titles={titles} anyPlayed={anyPlayed} pool={group.pool} project={project}/>}
-      {tab==="squads" && <SquadsTab standings={standings} titles={titles} anyPlayed={anyPlayed} teamHolders={teamHolders} openCard={openCard} setOpenCard={setOpenCard}/>}
+      {tab==="squads" && <SquadsTab standings={standings} titles={titles} anyPlayed={anyPlayed} teamHolders={teamHolders} knockouts={knockouts} openCard={openCard} setOpenCard={setOpenCard}/>}
       {tab==="predict" && <PredictTab group={group} preds={preds} onPick={onPick} mine={mine} toggleMine={toggleMine} now={now} results={results} matches={matches} knockouts={knockouts}/>}
-      {tab==="cup" && <CupTab group={group} nextFx={nextFx} results={results} matches={matches} knockouts={knockouts} now={now}/>}
+      {tab==="cup" && <CupTab group={group} nextFx={nextFx} results={results} matches={matches} knockouts={knockouts}/>}
       {tab==="pot" && <PotTab group={group} standings={standings} saveGroup={saveGroup} project={project} anyPlayed={anyPlayed}/>}
     </div>
   );
@@ -1085,19 +1105,24 @@ function RanksTab({ standings, titles, anyPlayed, pool, project }){
 }
 
 /* ------------------------------ SQUADS ---------------------------- */
-function SquadsTab({ standings, titles, anyPlayed, teamHolders, openCard, setOpenCard }){
+function SquadsTab({ standings, titles, anyPlayed, teamHolders, knockouts, openCard, setOpenCard }){
   const t = useT();
   const alpha = [...standings].sort((a,b)=>a.name.localeCompare(b.name));
   const hasDupes = Object.values(teamHolders||{}).some(c=>c>1);
+  const koState = useMemo(()=>koTeamState(knockouts), [knockouts]);
   return (<div className="squads">
     {hasDupes && <p className="hint"><Info size={13}/> {t("squads.dupesPre")}<span className="t-share inline">×N</span>{t("squads.dupesPost")}</p>}
     {alpha.map(s=>(
-    <Card key={s.id} s={s} titles={titles[s.id]||[]} anyPlayed={anyPlayed} teamHolders={teamHolders} open={openCard===s.id} onToggle={()=>setOpenCard(o=>o===s.id?null:s.id)}/>
+    <Card key={s.id} s={s} titles={titles[s.id]||[]} anyPlayed={anyPlayed} teamHolders={teamHolders} koState={koState} open={openCard===s.id} onToggle={()=>setOpenCard(o=>o===s.id?null:s.id)}/>
   ))}</div>);
 }
-function Card({ s, titles, anyPlayed, teamHolders, open, onToggle }){
+function Card({ s, titles, anyPlayed, teamHolders, koState, open, onToggle }){
   const tr = useT();
-  const teams = [...s.teams].sort((a,b)=> tierOf(a.id)-tierOf(b.id) || TEAMS[a.id].r-TEAMS[b.id].r);
+  // In the knockout phase, still-in teams first then eliminated, each block alphabetical by name. Before
+  // the knockouts (koState.hasKo false), keep the original tier ordering and strike nothing.
+  const teams = koState.hasKo
+    ? [...s.teams].sort((a,b)=>{ const ai=koState.isIn(a.id), bi=koState.isIn(b.id); return ai!==bi ? (ai?-1:1) : TEAMS[a.id].n.localeCompare(TEAMS[b.id].n); })
+    : [...s.teams].sort((a,b)=> tierOf(a.id)-tierOf(b.id) || TEAMS[a.id].r-TEAMS[b.id].r);
   return (
     <div className={"card"+(open?" open":"")}>
       <button className="card-head" onClick={onToggle}>
@@ -1108,15 +1133,18 @@ function Card({ s, titles, anyPlayed, teamHolders, open, onToggle }){
         <div className="card-pts display">{s.pts}<span>{tr("common.pts")}</span></div>
       </button>
       <div className="card-teams" style={open?{maxHeight:teams.length*46+16}:undefined}>
-        {teams.map(t=>(
-          <div className="team-row" key={t.id}>
+        {teams.map(t=>{
+          const out = koState.hasKo && !koState.isIn(t.id);              // eliminated → struck through
+          return (
+          <div className={"team-row"+(out?" elim":"")} key={t.id}>
             <span className="t-flag">{TEAMS[t.id].f}</span>
             <span className="t-name">{TEAMS[t.id].n}</span>
             {teamHolders&&teamHolders[t.id]>1 && <span className="t-share" title={tr("squads.heldBy",{n:teamHolders[t.id]})}>×{teamHolders[t.id]}</span>}
             <span className="t-rec">{t.pld>0?`${t.w}-${t.d}-${t.l}`:"—"}</span>
             <span className="t-pts display">{t.pts}</span>
           </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
@@ -1393,69 +1421,32 @@ function PredictTab({ group, preds, onPick, mine, toggleMine, now, results, matc
 /* ------------------------------- CUP ------------------------------ */
 // Read-only match card for the combined "All upcoming" list: same layout as the group fixtures and
 // the predict rows (teams, group, local kickoff, chances line), but with no score entry.
-function UpcomingFixture({ fx, matches, holderLine }){
+function CupTab({ group, nextFx, results, matches, knockouts }){
   const t = useT();
-  return (
-    <div className="fx">
-      <div className="fx-top"><span className="fx-grp">{t("common.grpX",{g:fx.grp})}</span><span className="fx-date">{fmtKickoff(koOf(fx,matches))}</span></div>
-      <div className="fx-main">
-        <div className="fx-team"><span className="flag">{TEAMS[fx.home].f}</span><span>{TEAMS[fx.home].n}</span></div>
-        <span className="fx-mid">{t("common.versus")}</span>
-        <div className="fx-team r"><span>{TEAMS[fx.away].n}</span><span className="flag">{TEAMS[fx.away].f}</span></div>
-      </div>
-      <div className="fx-holders">
-        <span className="fx-holder">{holderLine(fx.home)}</span>
-        <span className="fx-mid">{t("common.versus")}</span>
-        <span className="fx-holder r">{holderLine(fx.away)}</span>
-      </div>
-      <Chances fx={fx} matches={matches}/>
-    </div>
-  );
-}
-function CupTab({ group, nextFx, results, matches, knockouts, now }){
-  const t = useT();
-  const [sel, setSel] = useState(()=> nextFx ? nextFx.grp : "A");
-  const isKO = sel==="KO";
-  const isUp = sel==="UP";
+  const [view, setView] = useState("ko");                            // Knockouts is the prominent default
+  const [grp, setGrp] = useState(()=> nextFx ? nextFx.grp : "A");    // selected group letter, only used in the Groups view
   // Display-only: which member(s) hold each team, read straight from the existing allocation (the same
   // group.alloc the Squads tab and leaderboard use). Joined with commas when a team is shared (>12
-  // members); empty string when somehow unheld, so the row just shows nothing extra. Never changes alloc.
+  // members); empty string when somehow unheld. Never changes alloc. Passed to BOTH the group tables and
+  // the knockout bracket so owner names appear consistently across the Cup tab.
   const holders = useMemo(()=>{ const m={}; group.members.forEach(mem=>(group.alloc[mem.id]||[]).forEach(tid=>{ (m[tid]=m[tid]||[]).push(mem.name); })); return m; }, [group]);
   const holderLine = (tid) => { const a=holders[tid]; return (a && a.length) ? a.join(", ") : ""; };
-  const table = (isKO||isUp) ? [] : groupStandings(sel, results);
-  const fixtures = (isKO||isUp) ? [] : FIXTURES.filter(fx=>fx.grp===sel).sort((a,b)=>koOf(a,matches)-koOf(b,matches));
-  // Combined "All upcoming": every group + knockout match not yet kicked off, sorted by real kickoff
-  // soonest first. koOf falls back to the placeholder time when the feed has no real kickoff yet;
-  // knockout rows without a valid kickoff (teams/date unpublished) are left out until they have one.
-  const upcomingAll = useMemo(()=>{
-    const items = [];
-    for(const fx of FIXTURES){ if(now < koOf(fx, matches)) items.push({ kind:"grp", ko:koOf(fx, matches), fx }); }
-    for(const row of Object.values(knockouts||{})){ const k = row.kickoff ? Date.parse(row.kickoff) : NaN; if(!Number.isNaN(k) && now < k) items.push({ kind:"ko", ko:k, row }); }
-    return items.sort((a,b)=> a.ko - b.ko);
-  }, [now, matches, knockouts]);
+  const table = groupStandings(grp, results);
+  const fixtures = FIXTURES.filter(fx=>fx.grp===grp).sort((a,b)=>koOf(a,matches)-koOf(b,matches));
   return (
     <div>
-      <div className="section-head"><span className="display sh-title">{t("cup.title")}</span><span className="sh-sub">{isUp?t("cup.subUpcoming"):isKO?t("cup.subKo"):t("cup.subGroups")}</span></div>
+      <div className="section-head"><span className="display sh-title">{t("cup.title")}</span><span className="sh-sub">{view==="ko"?t("cup.subKo"):t("cup.subGroups")}</span></div>
       <div className="grp-sel">
-        <button className={"grp-chip up"+(isUp?" on":"")} onClick={()=>setSel("UP")}>{t("cup.allUpcoming")}</button>
-        {LETTERS.map(L=>(<button key={L} className={"grp-chip"+(sel===L?" on":"")} onClick={()=>setSel(L)}>{L}</button>))}
-        <button className={"grp-chip ko"+(isKO?" on":"")} onClick={()=>setSel("KO")}>{t("cup.knockouts")}</button>
+        <button className={"grp-chip ko"+(view==="ko"?" on":"")} onClick={()=>setView("ko")}>{t("cup.knockouts")}</button>
+        <button className={"grp-chip groups"+(view==="groups"?" on":"")} onClick={()=>setView("groups")}>{t("cup.groups")}</button>
       </div>
 
-      {isUp ? (
-        <div>
-          {upcomingAll.length===0
-            ? <p className="empty-note"><Sparkles size={15}/> {t("cup.upcomingEmpty")}</p>
-            : <div className="fixtures">
-                {upcomingAll.map(it => it.kind==="ko"
-                  ? <KoMatch key={"ko"+it.row.id} row={it.row} holderLine={holderLine}/>
-                  : <UpcomingFixture key={it.fx.id} fx={it.fx} matches={matches} holderLine={holderLine}/>)}
-              </div>}
-          <p className="hint"><Info size={13}/> {t("cup.upcomingHint")}</p>
-        </div>
-      ) : isKO ? <KnockoutList knockouts={knockouts}/> : <>
+      {view==="ko" ? <KnockoutList knockouts={knockouts} holderLine={holderLine}/> : <>
+      <div className="grp-sel">
+        {LETTERS.map(L=>(<button key={L} className={"grp-chip"+(grp===L?" on":"")} onClick={()=>setGrp(L)}>{L}</button>))}
+      </div>
       <div className="std-card">
-        <div className="std-title">{t("common.groupX",{g:sel})}</div>
+        <div className="std-title">{t("common.groupX",{g:grp})}</div>
         <div className="std-row std-h"><span className="std-pos"></span><span className="std-team">{t("cup.team")}</span><span>{t("abbr.p")}</span><span>{t("abbr.w")}</span><span>{t("abbr.d")}</span><span>{t("abbr.l")}</span><span>{t("abbr.gd")}</span><span className="std-pts">{t("abbr.pts")}</span></div>
         {table.map((row,i)=>{
           const holder = holderLine(row.id);
@@ -1470,7 +1461,7 @@ function CupTab({ group, nextFx, results, matches, knockouts, now }){
         <div className="std-foot">{t("cup.advance")}</div>
       </div>
 
-      <div className="md-head">{t("cup.fixtures",{g:sel})}</div>
+      <div className="md-head">{t("cup.fixtures",{g:grp})}</div>
       <div className="fixtures">
         {fixtures.map(fx=>{
           const res = results[fx.id];
@@ -1537,18 +1528,31 @@ function KoMatch({ row, holderLine }){
   const hasScore = row.home_score!=null && row.away_score!=null;
   const live = hasScore && isLiveStatus(row.status);
   const showChances = !completed && row.home_odds!=null && row.draw_odds!=null && row.away_odds!=null;
+  // FIX 4: accurate "decided by" label in the small corner text for a completed match — "Penalties" for
+  // a shootout, "Full time (a.e.t.)" for extra time, plain "Full time" for normal time; "Live" in play.
+  const decidedLabel = live ? t("common.live")
+    : row.has_penalty_shootout ? t("ko.penalties")
+    : row.has_extra_time ? t("ko.fullTimeAet")
+    : t("common.fullTime");
+  // FIX 3: the shootout score, shown smaller and centred directly under the main score and marked as the
+  // shootout, e.g. "(pens 2–3)". Oriented home–away exactly like the main score. Shootout games only.
+  const pensNote = (row.has_penalty_shootout && row.home_score_penalties!=null && row.away_score_penalties!=null)
+    ? `(${t("ko.pens")} ${row.home_score_penalties}–${row.away_score_penalties})`
+    : "";
   // Owner only for a slot that is an actual team; placeholders (Winner of Match X, a group position,
-  // otherwise undecided) have no holder, so that side shows nothing. holderLine is passed only in the
-  // "All upcoming" list, so the standalone Knockouts view is unchanged.
+  // otherwise undecided) have no holder, so that side shows nothing. Same quiet holder line as the
+  // other Cup fixture lists; with >12 members a shared team is comma-separated by holderLine.
   const homeOwner = (holderLine && TEAMS[row.home_team]) ? holderLine(row.home_team) : "";
   const awayOwner = (holderLine && TEAMS[row.away_team]) ? holderLine(row.away_team) : "";
   return (
     <div className={"fx"+(hasScore?" done":"")}>
       <div className="fx-top"><span className="fx-grp">{KO_STAGE_TAG[row.stage]?t(KO_STAGE_TAG[row.stage]):""}</span>
-        <span className="fx-date">{hasScore ? `${live?t("common.live"):t("common.fullTime")} ${row.home_score}–${row.away_score}${koDecidedNote(t, row.has_penalty_shootout, row.home_score_penalties, row.away_score_penalties, row.has_extra_time)}` : (Number.isNaN(ko) ? t("ko.tbs") : fmtKickoff(ko))}</span></div>
+        <span className="fx-date">{hasScore ? decidedLabel : (Number.isNaN(ko) ? t("ko.tbs") : fmtKickoff(ko))}</span></div>
       <div className="fx-main">
         <KoTeam tok={row.home_team}/>
-        <span className="fx-mid">{t("common.versus")}</span>
+        {hasScore
+          ? <span className="ko-score"><span className="score display">{row.home_score}–{row.away_score}</span>{pensNote && <span className="score-note">{pensNote}</span>}</span>
+          : <span className="fx-mid">{t("common.versus")}</span>}
         <KoTeam tok={row.away_team} right/>
       </div>
       {(homeOwner && awayOwner) ? (
@@ -1574,7 +1578,7 @@ function KoMatch({ row, holderLine }){
     </div>
   );
 }
-function KnockoutList({ knockouts }){
+function KnockoutList({ knockouts, holderLine }){
   const t = useT();
   const rows = Object.values(knockouts||{});
   if(!rows.length) return <p className="empty-note"><Sparkles size={15}/> {t("ko.empty")}</p>;
@@ -1588,7 +1592,7 @@ function KnockoutList({ knockouts }){
         return (
           <div key={stage}>
             <div className="md-head">{KO_STAGE_LABEL[stage]?t(KO_STAGE_LABEL[stage]):stage}</div>
-            <div className="fixtures">{list.map(r=> <KoMatch key={r.id} row={r}/>)}</div>
+            <div className="fixtures">{list.map(r=> <KoMatch key={r.id} row={r} holderLine={holderLine}/>)}</div>
           </div>
         );
       })}
@@ -1902,6 +1906,9 @@ const CSS = `
 .flag{font-size:19px}.abbr{font-size:12px;letter-spacing:.03em}
 .vs{color:rgba(251,247,236,.4);font-size:12px}
 .score{font-size:22px;color:var(--cream);min-width:42px;text-align:center}
+/* Knockout completed score: large centre score (reusing .score) with a small "decided by" note (pens / a.e.t.) under it. */
+.ko-score{flex:none;display:flex;flex-direction:column;align-items:center;gap:1px}
+.score-note{font-size:10px;font-weight:600;letter-spacing:.02em;color:rgba(251,247,236,.5);white-space:nowrap;text-align:center}
 .cd{font-size:21px;color:var(--gold);text-align:center;margin-top:8px}
 @media(max-width:430px){.banner-grid{grid-template-columns:1fr}}
 .tabs{display:grid;grid-template-columns:repeat(5,1fr);gap:5px;background:rgba(0,0,0,.22);padding:5px;border-radius:14px;margin-bottom:14px}
@@ -1944,6 +1951,9 @@ const CSS = `
 .team-row{display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px solid rgba(255,255,255,.07)}
 .t-flag{font-size:22px;flex:none}.t-flag.sm{font-size:18px}
 .t-name{flex:1;font-weight:600;font-size:14px;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* Squads: eliminated team (out of the tournament) — struck through and dimmed; still-in teams render normally. */
+.team-row.elim{opacity:.5}
+.team-row.elim .t-name{text-decoration:line-through}
 .t-tier{font-size:9.5px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:#06160e;padding:3px 7px;border-radius:6px;flex:none}
 .t-share{font-size:9.5px;font-weight:800;letter-spacing:.02em;color:#9fdcf2;background:rgba(57,169,219,.16);border:1px solid rgba(57,169,219,.32);padding:2px 6px;border-radius:6px;flex:none}
 .t-share.inline{padding:1px 5px;vertical-align:middle}
@@ -2012,10 +2022,14 @@ const CSS = `
 .call-pick{color:rgba(251,247,236,.5);font-weight:600;flex:none}
 .call.hit .call-pick{color:#7be08c}.call.miss .call-pick{color:#ff9b7d}
 .call.hit .call-name{color:var(--cream)}
-.grp-sel{display:flex;gap:6px;overflow-x:auto;padding-bottom:6px;margin-bottom:6px;-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
+/* Horizontal chip scroller. overflow-y is pinned to hidden (NOT left to compute to auto, which
+   overflow-x:auto would otherwise force) so this short row never becomes a vertical scroll container
+   that swallows page swipes; overscroll-behavior is x-only so vertical touch scrolling chains to the
+   document. This is what was trapping the Cup tab once the long knockout bracket became its default. */
+.grp-sel{display:flex;gap:6px;overflow-x:auto;overflow-y:hidden;padding-bottom:6px;margin-bottom:6px;-webkit-overflow-scrolling:touch;overscroll-behavior-x:contain}
 .grp-chip{flex:none;width:38px;height:38px;border-radius:11px;background:rgba(255,255,255,.06);border:1px solid var(--line);color:rgba(251,247,236,.7);font-family:'Anton';font-size:16px;cursor:pointer}
 .grp-chip.on{background:linear-gradient(180deg,#ffe066,#f4b400);color:#3a2a00;border-color:transparent}
-.grp-chip.ko,.grp-chip.up{width:auto;padding:0 13px;font-family:'Outfit';font-size:12px;font-weight:700;letter-spacing:.02em}
+.grp-chip.ko,.grp-chip.up,.grp-chip.groups{width:auto;padding:0 14px;font-family:'Outfit';font-size:12px;font-weight:700;letter-spacing:.02em}
 .ko-tbd{font-weight:600;font-size:12.5px;color:rgba(251,247,236,.55)}
 .std-card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:12px 13px;margin-top:4px}
 .std-title{font-family:'Anton',sans-serif;text-transform:uppercase;font-size:17px;color:var(--gold);margin-bottom:8px}
