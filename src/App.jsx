@@ -250,29 +250,31 @@ const koDecidedNote = (t, hasPens, hp, ap, hasEt) =>
   : hasEt ? ` ${t("ko.aet")}` : "";
 // How a completed knockout was actually decided: "pens" (shootout) > "et" (extra time) > "nt".
 const koManner = (hasEt, hasPens) => hasPens ? "pens" : hasEt ? "et" : "nt";
-// Decode a stored knockout pick into { side, manner }. New combined picks: "home:nt","away:nt",
-// "home:et","away:et" (team + how it's decided) and "pens" (any shootout, no winner named). Legacy
-// picks from the previous winner-only system are a bare "home"/"away" → side set, manner null (so
-// they score on winner only, ignoring manner). Anything unrecognised → both null (never scored right).
+// Decode a stored knockout pick into { side, manner }. Combined picks name both the team and how it
+// is decided: "home:nt"/"away:nt", "home:et"/"away:et", "home:pens"/"away:pens" → side + manner.
+// Backward-compat: a bare "pens" is a shootout with no winner named → { side:null, manner:"pens" };
+// a bare "home"/"away" is the old winner-only system → side set, manner null (scored on winner only).
+// Anything unrecognised → both null (never scored correct).
 const parseKoPick = (pick) => {
-  if(pick==="pens") return { side:null, manner:"pens" };
+  if(pick==="pens") return { side:null, manner:"pens" };                  // legacy: shootout, winner not named
   if(pick==="home" || pick==="away") return { side:pick, manner:null };   // legacy winner-only
-  const m = /^(home|away):(nt|et)$/.exec(pick||"");
+  const m = /^(home|away):(nt|et|pens)$/.exec(pick||"");
   return m ? { side:m[1], manner:m[2] } : { side:null, manner:null };
 };
 // Is a knockout pick correct? Correct-or-not, no partial credit:
-//   penalties option   → the match was decided by a shootout (whoever won it);
-//   normal-time option → chosen team progressed AND it was decided in normal time;
-//   extra-time option  → chosen team progressed AND it went to extra time but NOT a shootout;
-//   legacy winner-only → chosen team progressed, regardless of manner.
+//   home:nt / away:nt    → chosen team progressed AND it was decided in normal time;
+//   home:et / away:et    → chosen team progressed AND it went to extra time but NOT a shootout;
+//   home:pens / away:pens→ decided by a shootout AND that team won it (i.e. that team progressed);
+//   legacy bare "pens"   → decided by a shootout, whoever won (all the user was asked at the time);
+//   legacy winner-only   → chosen team progressed, regardless of manner.
 // "Who progressed" is koWinner (penalties included); manner comes from has_extra_time / has_penalty_shootout.
 const koPickCorrect = (pick, h, a, hp, ap, hasEt, hasPens) => {
   const { side, manner } = parseKoPick(pick);
   const actual = koManner(hasEt, hasPens);
-  if(manner==="pens") return actual==="pens";
   const prog = koWinner(h, a, hp, ap);
-  if(manner==null) return side!=null && prog===side;                       // legacy winner-only
-  return prog===side && actual===manner;                                   // nt / et: right team AND right manner
+  if(manner==="pens") return actual==="pens" && (side==null || prog===side); // bare pens: any shootout; home:pens/away:pens: that team won it
+  if(manner==null) return side!=null && prog===side;                         // legacy winner-only
+  return prog===side && actual===manner;                                     // nt / et: right team AND right manner
 };
 // Which teams are still in the tournament, from the knockout feed. A team is STILL IN if it reached the
 // knockouts (appears as a real team in any slot) and has not lost a completed knockout match (koWinner
@@ -1203,19 +1205,21 @@ function predictionTallies(members, preds, results, knockouts){
     return { ...m, correct, called };
   });
 }
-// Readable label for a member's combined knockout pick in the results/calls view. Penalties → "Penalties";
-// a team + manner → "{team} · 90'" / "{team} · a.e.t."; a legacy winner-only pick → just the team name.
+// Readable label for a member's combined knockout pick in the results/calls view. A team + manner →
+// "{team} · 90'" / "{team} · a.e.t." / "{team} · pens"; a legacy bare "pens" (no winner) → "Penalties";
+// a legacy winner-only pick → just the team name.
 function koPickLabel(pick, homeId, awayId, t){
   const { side, manner } = parseKoPick(pick);
-  if(manner==="pens") return t("predict.koPenalties");
   const name = side==="home" ? TEAMS[homeId].n : side==="away" ? TEAMS[awayId].n : null;
+  if(manner==="pens") return name ? t("predict.koCallPens", { team:name }) : t("predict.koPenalties");
   if(!name) return t("predict.noPick");
   if(manner==="nt") return t("predict.koCallNt", { team:name });
   if(manner==="et") return t("predict.koCallEt", { team:name });
   return name;                                                               // legacy winner-only
 }
-// One combined knockout pick: who progresses (home/away) crossed with how (normal time / extra time),
-// plus a single penalties option. One selection per match — only one of the five can be active.
+// One combined knockout pick: who goes through (home/away) crossed with how (normal time / extra time
+// / penalties), as three labelled two-team rows. One selection per match — only one of the six can be
+// active (selecting one replaces any other).
 function KoPickChoice({ item, pick, onPick }){
   const t = useT();
   const btn = (v, lbl) => <button className={"pred-btn"+(pick===v?" on":"")} onClick={()=>onPick(v)}>{lbl}</button>;
@@ -1225,7 +1229,8 @@ function KoPickChoice({ item, pick, onPick }){
         <div className="pred-row">{btn("home:nt", item.home)}{btn("away:nt", item.away)}</div></div>
       <div className="ko-grp"><span className="ko-grp-lbl">{t("predict.koExtraTime")}</span>
         <div className="pred-row">{btn("home:et", item.home)}{btn("away:et", item.away)}</div></div>
-      <button className={"pred-btn ko-pens-btn"+(pick==="pens"?" on":"")} onClick={()=>onPick("pens")}>{t("predict.koPenalties")}</button>
+      <div className="ko-grp"><span className="ko-grp-lbl">{t("predict.koPenalties")}</span>
+        <div className="pred-row">{btn("home:pens", item.home)}{btn("away:pens", item.away)}</div></div>
     </div>
   );
 }
@@ -1998,7 +2003,6 @@ const CSS = `
 .pick-line.ko .ko-picks{flex:1;display:flex;flex-direction:column;gap:7px;min-width:0}
 .pick-line.ko .ko-grp{display:flex;align-items:center;gap:9px}
 .pick-line.ko .ko-grp-lbl{font-size:10.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:rgba(251,247,236,.55);flex:none;width:80px}
-.pick-line.ko .ko-pens-btn{flex:none;width:100%}
 .locked-row{color:rgba(251,247,236,.55)}
 .locked-row svg{flex:none}
 .pick-locked{font-size:12px;font-weight:600}

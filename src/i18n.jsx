@@ -241,6 +241,7 @@ const translations = {
     "predict.koPenalties": "Penalties",
     "predict.koCallNt": "{team} · 90'",
     "predict.koCallEt": "{team} · a.e.t.",
+    "predict.koCallPens": "{team} · pens",
 
     // cup / tournament
     "cup.title": "The tournament",
